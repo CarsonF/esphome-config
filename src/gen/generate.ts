@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import process from 'node:process';
 import { unique } from 'remeda';
@@ -6,15 +6,20 @@ import { unique } from 'remeda';
 /**
  * Writes `out` from ESPHome's language schema: a class and its types for every component and
  * platform, typed `actions` and `conditions`, and the registry `esp` is typed from.
+ * With `external`, only the components dumped there, as an augmentation of the package's registry.
  * Example: await generate({ version: '2026.9.1', schema: '/path/to/schema', out: 'src/generated' })
  */
 export async function generate(options: GenerateOptions): Promise<void> {
-  ({ version: VERSION, schema: SCHEMA, out: OUT } = options);
+  ({ version: VERSION, schema: SCHEMA, out: OUT, external: EXTERNAL } = options);
+  EXTERNAL_MODE = EXTERNAL !== undefined;
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
-  const catalog = await discover();
-  writeReserved(catalog);
-  writeVersion();
+  const catalog = EXTERNAL_MODE ? discoverExternal() : await discover();
+  if (EXTERNAL_MODE) externalNamespaces = new Set(catalog.namespaces);
+  else {
+    writeReserved(catalog);
+    writeVersion();
+  }
   await generateTypes(catalog);
 }
 
@@ -24,10 +29,32 @@ export interface GenerateOptions {
   /** A directory with the esphome-schema release's JSON files. */
   schema: string;
   out: string;
+  /** A directory with the external components' schema dump, one `<component>.json` each. */
+  external?: string;
+}
+
+/** What the external dump holds: `<name>.json` has `<name>` and `<name>.<domain>` entries. */
+function discoverExternal(): Catalog {
+  const dir = EXTERNAL!;
+  const platforms: string[] = [];
+  const components: string[] = [];
+  for (const file of readdirSync(dir).filter((name) => name.endsWith('.json'))) {
+    const name = file.slice(0, -'.json'.length);
+    for (const key of Object.keys(JSON.parse(readFileSync(`${dir}/${file}`, 'utf8')))) {
+      if (key === name) components.push(name);
+      else if (key.startsWith(`${name}.`)) platforms.push(`${key.split('.')[1]}.${name}`);
+    }
+  }
+  const named = [...components, ...platforms.map((spec) => spec.split('.')[1])];
+  return {
+    platforms: platforms.sort(),
+    components: components.sort(),
+    namespaces: unique(named).sort(),
+  };
 }
 
 async function generateTypes(catalog: Catalog): Promise<void> {
-  const modules = ['reserved.ts', 'version.ts'];
+  const modules = EXTERNAL_MODE ? [] : ['reserved.ts', 'version.ts'];
   const keywords: string[] = [];
   const domainNames: string[] = [];
   for (const [domain, specs] of Map.groupBy(catalog.platforms, (spec) => spec.split('.')[0])) {
@@ -108,8 +135,32 @@ ${components.map((c) => `  ${propName(c)}: typeof C.${safe(c)};`).join('\n')}
 }
 export interface Actions extends OwnActions {}
 export interface Conditions extends OwnConditions {}`;
-  writeFileSync(`${OUT}/registry.ts`, `${header}${imports}\n\n${aliases}\n\n${declarations}\n`);
+  if (!EXTERNAL_MODE) {
+    writeFileSync(`${OUT}/registry.ts`, `${header}${imports}\n\n${aliases}\n\n${declarations}\n`);
+    return;
+  }
+  writeFileSync(
+    `${OUT}/register.ts`,
+    `${header}import { registerExternal } from 'esphome-config';
+import * as external from './index.ts';
+${imports}
+
+registerExternal(external);
+
+${aliases}
+
+declare module 'esphome-config/registry' {
+${indent(declarations.replace(/^export /gm, ''))}
 }
+`,
+  );
+}
+
+const indent = (text: string): string =>
+  text
+    .split('\n')
+    .map((line) => (line ? `  ${line}` : line))
+    .join('\n');
 
 //#endregion
 
@@ -145,6 +196,11 @@ export const ESPHOME_VERSION = '${VERSION}';
 let VERSION = '';
 let SCHEMA = '';
 let OUT = '';
+let EXTERNAL: string | undefined;
+let EXTERNAL_MODE = false;
+
+/** External mode: the namespaces defined by the external components; the rest are core. */
+let externalNamespaces = new Set<string>();
 
 let generated = 0;
 let skipped = 0;
@@ -263,9 +319,13 @@ interface Schema {
 // biome-ignore lint: the schema is untyped JSON
 type Json = any;
 
+/** Core files first; external components add their own beside them. */
 async function load(file: string): Promise<Json> {
-  const path = `${SCHEMA}/${file}.json`;
-  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {};
+  const path = [SCHEMA, EXTERNAL]
+    .filter((dir) => dir !== undefined)
+    .map((dir) => `${dir}/${file}.json`)
+    .find((candidate) => existsSync(candidate));
+  return path ? JSON.parse(readFileSync(path, 'utf8')) : {};
 }
 
 /** `sensor._SENSOR_SCHEMA` lives in sensor.json, `core.X` in esphome.json. */
@@ -532,7 +592,10 @@ async function entityMethod(
   const vars = await flatten(spec.schema ?? {});
   const doc = spec.docs ? `  /** ${docLine(spec.docs)} */\n` : '';
   const returns = section === 'action' ? 'Action' : 'Condition';
-  const builders = section === 'action' ? 'actions' : 'conditions';
+  // a platform's own builders are core even when the platform is external (`sensor.in_range`)
+  const own = externalNamespaces.has(namespace);
+  const kind = section === 'action' ? 'Actions' : 'Conditions';
+  const builders = own ? `external${kind}` : kind.toLowerCase();
   const path = name.split('.');
   const leaf = path.at(-1)!;
   const fn = `${builders}.${propName(namespace)}.${path.join('.')}`;
@@ -1017,18 +1080,23 @@ async function builder(component: string, name: string, spec: Json, leaf: string
 
 /** A file under OUT, `depth` directories down, with the imports the generated code uses. */
 function write(name: string, body: string, depth = 0): void {
-  const up = '../'.repeat(depth + 1);
+  // external output imports the package, wherever the consumer puts it
+  const dsl = EXTERNAL_MODE ? 'esphome-config' : `${'../'.repeat(depth + 1)}dsl/index.ts`;
   const header = `// Generated by esphome-config from the ESPHome ${VERSION} schema; do not edit.
-import { Entity, currentScope, entityFactory, flat, optionalEntityFactory, toCondition, withSteps, type Automation, type Construct, type Cpp, type CppFn, type InternalPin, type Pin, type Ref } from '${up}dsl/index.ts';
-import type { Action, Any, Condition, Config, Frequency, Lambda, Many, Percent, Step, Tagged, Tail, Thunk, Time, Value } from '${up}dsl/index.ts';
+import { Entity, currentScope, entityFactory, flat, optionalEntityFactory, toCondition, withSteps, type Automation, type Construct, type Cpp, type CppFn, type InternalPin, type Pin, type Ref } from '${dsl}';
+import type { Action, Any, Condition, Config, Frequency, Lambda, Many, Percent, Step, Tagged, Tail, Thunk, Time, Value } from '${dsl}';
 import type * as S from '${depth ? '../'.repeat(depth) : './'}schemas.ts';
 ${name.startsWith('actions/') ? '' : actionImports(depth)}`;
   mkdirSync(dirname(`${OUT}/${name}.ts`), { recursive: true });
   writeFileSync(`${OUT}/${name}.ts`, header + body);
 }
 
+/** Entities call builders: core ones always, and in external mode their own beside them. */
 function actionImports(depth: number): string {
-  return `import { actions, conditions } from '${depth ? '../'.repeat(depth) : './'}actions/index.ts';\n`;
+  const local = `${depth ? '../'.repeat(depth) : './'}actions/index.ts`;
+  if (!EXTERNAL_MODE) return `import { actions, conditions } from '${local}';\n`;
+  return `import { actions, conditions } from 'esphome-config/generated/actions/index';
+import { actions as externalActions, conditions as externalConditions } from '${local}';\n`;
 }
 
 function writeIndex(dir: string, body: string): void {

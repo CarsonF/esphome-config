@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": ["devices", "generated", "types.ts"],
+  "exclude": []
+}

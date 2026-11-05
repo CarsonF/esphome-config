@@ -62,7 +62,7 @@ A `tsconfig.json` for a project of devices:
     "noEmit": true,
     "strict": true
   },
-  "include": ["devices"]
+  "include": ["devices", "generated"]
 }
 ```
 
@@ -88,3 +88,81 @@ An entity's id is its `id` prop, else made from its `name`.
 `construct(label, build)` makes a reusable group whose entities are named under it:
 `pwmFan({ name: 'Cooler', ... })` creates `cooler_output` and `cooler_fan`.
 Ids only reach the YAML when something refers to the entity.
+
+## External components
+
+Types for third-party components come from their own schema, dumped by ESPHome itself:
+
+```sh
+esphome-config generate-external github://<owner>/<repo>@<ref> ./my-components
+```
+
+```ts
+esp.external_component({ source: 'github://<owner>/<repo>@<ref>', components: ['my_sensor'] });
+esp.sensor.my_sensor({ name: 'Level', channel: 3 });
+```
+
+- A source is `github://<owner>/<repo>@<ref>`, as in `external_components`, or a local directory.
+  Components are read from its `components/` directory, if it has one.
+- It writes `generated/external` (or `--out <dir>`), which `esphome-config build` loads,
+  so `esp` has the new components; commit it or regenerate it, as you like.
+- It needs the ESPHome release the package's types are for, and fails if it finds another.
+  It runs the Python of the `esphome` command, or `ESPHOME_PYTHON`.
+- The ESPHome schema and its schema script are downloaded once,
+  and cached under `~/.cache/esphome-config`.
+
+## Your own npm dependencies
+
+A device file is a Node program, so it can import any package you add:
+a YAML or CSV of your pins, a helper to compute filter coefficients.
+They run when the YAML is built, not on the chip:
+a lambda is C++ on the device, so it can only use what ESPHome and its libraries provide.
+
+## Nix
+
+Nix is optional; the flake wraps the same CLI with pinned inputs.
+`lib.mkProject` builds a project's devices, with external component types made in the sandbox:
+
+```nix
+{
+  inputs.esphome-config.url = "github:CarsonF/esphome-config/v<version>";
+
+  outputs =
+    { esphome-config, nixpkgs, ... }:
+    let
+      system = "x86_64-linux";
+      project = esphome-config.lib.mkProject {
+        inherit system;
+        src = ./.;
+        # set it to the hash Nix prints, after each change to pnpm-lock.yaml
+        pnpmDepsHash = "sha256-...";
+        externalComponents = [
+          rec {
+            rev = "<ref>";
+            src = nixpkgs.legacyPackages.${system}.fetchFromGitHub {
+              owner = "<owner>";
+              repo = "<repo>";
+              inherit rev;
+              hash = "sha256-...";
+            };
+            # the `source` the devices use; the check reads `src` instead, offline
+            source = "github://<owner>/<repo>@${rev}";
+          }
+        ];
+      };
+    in
+    {
+      packages.${system}.default = project.configs; # result/<device>/<device>.yaml
+      checks.${system}.devices = project.check; # `esphome config` on each device
+      devShells.${system}.default = project.devShell; # with generated/external in place
+    };
+}
+```
+
+- Use the flake input of the same release as the package in package.json:
+  the build fails if their ESPHome versions differ.
+- `lib.mkExternalTypes { system; externalComponents; }` is just the `generated/external` directory.
+- Don't `nix run` the flake's CLI on your devices.
+  It would load its own copy of the library beside the one your devices import,
+  and entities would not find their device; `mkProject` runs the CLI from your `node_modules`.
+

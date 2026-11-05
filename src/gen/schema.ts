@@ -33,6 +33,7 @@ export async function schemaDir(version: string): Promise<string> {
   return dir;
 }
 
-function cacheRoot(): string {
+/** `$XDG_CACHE_HOME/esphome-config`, for downloads. */
+export function cacheRoot(): string {
   return join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'esphome-config');
 }

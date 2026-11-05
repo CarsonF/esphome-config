@@ -1,0 +1,52 @@
+{
+  "my_sensor.sensor": {
+    "schemas": {
+      "CONFIG_SCHEMA": {
+        "schema": {
+          "config_vars": {
+            "accuracy_decimals": {
+              "default": "1"
+            },
+            "channel": {
+              "key": "Required",
+              "type": "integer"
+            },
+            "id": {
+              "id_type": {
+                "class": "my_sensor::MySensor",
+                "parents": [
+                  "sensor::Sensor",
+                  "EntityBase",
+                  "PollingComponent",
+                  "Component"
+                ]
+              }
+            },
+            "mode": {
+              "default": "fast",
+              "key": "Optional",
+              "type": "enum",
+              "values": {
+                "fast": null,
+                "slow": null
+              }
+            },
+            "scale": {
+              "default": "1.0",
+              "key": "Optional"
+            },
+            "update_interval": {
+              "default": "60s",
+              "key": "Optional"
+            }
+          },
+          "extends": [
+            "sensor._SENSOR_SCHEMA",
+            "core.COMPONENT_SCHEMA"
+          ]
+        },
+        "type": "schema"
+      }
+    }
+  }
+}

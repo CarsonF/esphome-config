@@ -26,6 +26,18 @@
             + "but the types are for ${esphomeVersion}"
           );
       schemaFor = pkgs: pkgs.callPackage ./nix/schema.nix { } esphomeVersion;
+      mkExternalTypesFor =
+        pkgs:
+        pkgs.callPackage ./nix/external.nix {
+          esphome = esphomeFor pkgs;
+          esphome-config = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+        };
+      mkProjectFor =
+        pkgs:
+        pkgs.callPackage ./nix/project.nix {
+          esphome = esphomeFor pkgs;
+          mkExternalTypes = mkExternalTypesFor pkgs;
+        };
     in
     {
       packages = forAllSystems (pkgs: rec {
@@ -46,6 +58,38 @@
         pkgs:
         let
           package = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          mkExternalTypes = mkExternalTypesFor pkgs;
+          fixture = {
+            src = ./test/external-fixture;
+            source = "github://example/fixture@main";
+          };
+          roode = rec {
+            rev = "b975cec4e5570c393d35ce7a9778c8d599865961";
+            src = pkgs.fetchFromGitHub {
+              owner = "Lyr3x";
+              repo = "Roode";
+              inherit rev;
+              hash = "sha256-ngVfSBPxqN2iiWUB9rAbXTpa4SvrYEgTwQ+87SweEHY=";
+            };
+            source = "github://Lyr3x/Roode@${rev}";
+          };
+          # `esphome config` on a test project's device, with its external source swapped for `src`
+          validate = dir: device: external: ''
+            (
+              cd ${dir}
+              export ESPHOME_LOCAL_EXTERNALS=${
+                pkgs.lib.escapeShellArg (builtins.toJSON { ${external.source} = "${external.src}/components"; })
+              }
+              mkdir -p $TMPDIR/config/${device}
+              node --conditions=esphome-config-source ../../src/cli.ts build ${device} \
+                > $TMPDIR/config/${device}/${device}.yaml
+              node --conditions=esphome-config-source ../../src/cli.ts build ${device} --secrets \
+                > $TMPDIR/config/${device}/secrets.yaml
+              cd $TMPDIR/config/${device}
+              esphome config ${device}.yaml > validated.txt 2>&1 || { cat validated.txt; exit 1; }
+              echo "${device}: valid" >> $out
+            )
+          '';
         in
         {
           inherit package;
@@ -68,8 +112,41 @@
               done
             '';
           });
+          # external component types from ESPHome's own dump, used by test projects
+          external = package.overrideAttrs (old: {
+            pname = "esphome-config-external";
+            nativeBuildInputs = old.nativeBuildInputs ++ [ (esphomeFor pkgs) ];
+            buildPhase = ''
+              export HOME=$TMPDIR
+              pnpm generate
+              rm -rf test/consumer/generated/external
+              cp -r ${mkExternalTypes [ fixture ]} test/consumer/generated/external
+              mkdir -p test/roode/generated
+              cp -r ${mkExternalTypes [ roode ]} test/roode/generated/external
+              chmod -R u+w test/consumer/generated test/roode/generated
+            '';
+            # the types tests are `@ts-expect-error` lines, and the fixture has a golden YAML
+            checkPhase = ''
+              pnpm typecheck
+              node_modules/.bin/tsc -p test/roode
+              node --conditions=esphome-config-source --test test/external.test.ts
+            '';
+            installPhase = ''
+              ${validate "test/consumer" "external-fixture" fixture}
+              ${validate "test/roode" "roode32" roode}
+            '';
+          });
         }
       );
+
+      # for consumers; see the README
+      lib = {
+        mkExternalTypes =
+          { system, externalComponents }:
+          mkExternalTypesFor nixpkgs.legacyPackages.${system} externalComponents;
+        mkProject =
+          { system, ... }@args: mkProjectFor nixpkgs.legacyPackages.${system} (removeAttrs args [ "system" ]);
+      };
 
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {

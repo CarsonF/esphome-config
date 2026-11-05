@@ -12,6 +12,15 @@ pnpm pack      # the release tarball
 and caches it under `~/.cache/esphome-config`.
 `ESPHOME_SCHEMA` names a schema directory to use instead.
 
+`pnpm generate` also writes the fixture's external types into `test/consumer/generated/external`,
+from the schema dump in `test/external-fixture/schema`.
+`test/consumer` is a project of devices as a consumer writes them,
+importing `esphome-config`, which resolves to `src` through the `esphome-config-source` condition.
+To refresh the fixture's dump after an ESPHome update, run
+`python3 src/gen/dump-external.py <build_language_schema.py> test/external-fixture/components <dir>`
+with ESPHome's Python, and copy `<dir>/my_sensor.json` into it.
+`test/roode` needs Roode's types, so only the Nix `external` check builds it.
+
 Needs Node 24 or newer and pnpm.
 
 Never commit real secrets, API keys or personal paths.

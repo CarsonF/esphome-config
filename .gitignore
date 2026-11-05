@@ -4,3 +4,4 @@ generated/
 result
 .env
 *.tgz
+__pycache__/

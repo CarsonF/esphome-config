@@ -13,6 +13,11 @@ import type { Actions, Components, Conditions, Domains } from './generated/regis
  */
 export const esp: Esp = merge(real, handWritten()) as unknown as Esp;
 
+/** Adds an external component's module to `esp`; the module's own register.ts calls it. */
+export function registerExternal(module: Record<string, unknown>): void {
+  mergeInto(esp as unknown as Record<string, unknown>, module);
+}
+
 export type * from './generated/index.ts';
 
 //#region Types

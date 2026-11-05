@@ -9,6 +9,9 @@ import type { Root } from './root.ts';
  * Example: await buildDevice('demo-fan') reads devices/demo-fan.ts
  */
 export async function buildDevice(name: string, options: BuildOptions = {}): Promise<string> {
+  // the project's external component types, which add themselves to `esp`
+  const external = resolve(process.cwd(), 'generated/external/register.ts');
+  if (existsSync(external)) await import(pathToFileURL(external).href);
   const device = await loadDevice(name, options.devicesDir ?? 'devices');
   if (options.secrets) {
     return device

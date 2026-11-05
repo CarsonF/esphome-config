@@ -11,7 +11,11 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    // `esphome-config` imports in this repo resolve to src, not dist
+    "customConditions": ["esphome-config-source"]
   },
-  "include": ["src", "test", "scripts"]
+  "include": ["src", "test", "scripts"],
+  // needs the Roode schema dump, which the Nix check generates
+  "exclude": ["test/roode"]
 }

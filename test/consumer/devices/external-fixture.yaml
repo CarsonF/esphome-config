@@ -1,0 +1,16 @@
+esphome:
+  name: external-fixture
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+external_components:
+  source: github://example/fixture@main
+  components:
+    - my_sensor
+sensor:
+  - platform: my_sensor
+    name: Fixture
+    channel: 3
+    mode: slow
+    scale: 2.5
