@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Keeps nix/pnpm-deps.hash in step with pnpm-lock.yaml.
+set -euo pipefail
+
+git diff --cached --name-only | grep -qx pnpm-lock.yaml || exit 0
+
+"$(git rev-parse --show-toplevel)/scripts/update-pnpm-hash.sh"
+git add nix/pnpm-deps.hash

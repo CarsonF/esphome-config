@@ -27,3 +27,15 @@ A bot keeps one release PR open with the version bump and changelog.
 Merging it tags the release.
 The release workflow then attaches the package tarball, `esphome-config-<version>.tgz`,
 to the GitHub release.
+
+## Nix
+
+Nix is optional.
+`nix develop` has Node, pnpm and the matching ESPHome,
+and points `ESPHOME_SCHEMA` at the pinned schema.
+`nix build` builds the package with its tests, and `nix flake check` also validates each test device
+with `esphome config`.
+The flake fails to evaluate if nixpkgs' ESPHome differs from `esphome.version` in package.json.
+
+`nix/pnpm-deps.hash` follows `pnpm-lock.yaml`: the dev shell's pre-commit hook updates it,
+as does a workflow on pull requests; by hand, run `scripts/update-pnpm-hash.sh`.
