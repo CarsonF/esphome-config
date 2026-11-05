@@ -20,7 +20,7 @@ export const sensor = entityFactory(
       return this.on('on_value', actions);
     }
   },
-  'sensor',
+  'probe',
 );
 
 export const wifi = entityFactory(kindClass({ domain: 'wifi', shape: 'single' }), 'wifi');

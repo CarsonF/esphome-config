@@ -2,9 +2,15 @@
 
 ```sh
 pnpm install
+pnpm generate  # src/generated, from the ESPHome schema pinned in package.json
 pnpm typecheck
 pnpm test
+pnpm pack      # the release tarball
 ```
+
+`pnpm generate` downloads the schema release for `esphome.version` in package.json,
+and caches it under `~/.cache/esphome-config`.
+`ESPHOME_SCHEMA` names a schema directory to use instead.
 
 Needs Node 24 or newer and pnpm.
 
@@ -19,3 +25,5 @@ Commit messages (or squash-merged PR titles) follow [Conventional Commits](https
 
 A bot keeps one release PR open with the version bump and changelog.
 Merging it tags the release.
+The release workflow then attaches the package tarball, `esphome-config-<version>.tgz`,
+to the GitHub release.

@@ -28,7 +28,7 @@ test('only referenced ids are printed, unless the kind always needs one', () => 
   assert.deepEqual(parse(yaml).sensor, [
     { platform: 'adc', id: 'named', name: 'Named' },
     { platform: 'adc', name: 'Other' },
-    { platform: 'adc', id: 'sensor' },
+    { platform: 'adc', id: 'probe' },
   ]);
   assert.deepEqual(parse(yaml).script, [{ id: 'run', then: [{ lambda: 'id(named)->update();' }] }]);
 });

@@ -16,8 +16,8 @@ test('an id without one comes from the name, else the label, made unique', () =>
   device('d', () => {
     assert.equal(sensor({ name: 'Living Room Temp!' }).id, 'living_room_temp');
     assert.equal(sensor({ name: 'Living Room Temp' }).id, 'living_room_temp_2');
-    assert.equal(sensor({ name: '42' }).id, 'sensor');
-    assert.equal(sensor({}).id, 'sensor_2');
+    assert.equal(sensor({ name: '42' }).id, 'probe');
+    assert.equal(sensor({}).id, 'probe_2');
   });
 });
 
