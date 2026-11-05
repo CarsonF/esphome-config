@@ -1,0 +1,31 @@
+{
+  "name": "esphome-config",
+  "version": "0.0.0",
+  "description": "Write ESPHome configs in TypeScript, with types from ESPHome's own schema",
+  "keywords": [
+    "esphome",
+    "typescript",
+    "home-automation",
+    "iot",
+    "dsl"
+  ],
+  "homepage": "https://github.com/CarsonF/esphome-config#readme",
+  "bugs": "https://github.com/CarsonF/esphome-config/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CarsonF/esphome-config.git"
+  },
+  "license": "MIT",
+  "author": "Carson Full <carson@full.family>",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0"
+  }
+}

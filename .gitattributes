@@ -1,0 +1,2 @@
+pnpm-lock.yaml -diff linguist-generated=true
+flake.lock -diff linguist-generated=true
