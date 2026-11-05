@@ -3,6 +3,7 @@
 ```sh
 pnpm install
 pnpm typecheck
+pnpm test
 ```
 
 Needs Node 24 or newer and pnpm.
