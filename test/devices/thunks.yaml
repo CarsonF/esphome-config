@@ -1,0 +1,47 @@
+esphome:
+  name: thunks
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+logger: {}
+switch:
+  - platform: template
+    id: sw_hold
+    name: Hold
+    optimistic: true
+    turn_on_action:
+      then:
+        - script.execute: hold
+    turn_off_action:
+      then:
+        - script.stop: hold
+script:
+  - id: hold
+    mode: restart
+    then:
+      - while:
+          condition:
+            switch.is_on:
+              id: sw_hold
+          then:
+            - delay: 120ms
+            - delay: 1s
+      - switch.turn_off:
+          id: sw_hold
+sensor:
+  - platform: adc
+    id: temp
+    pin: GPIO34
+    on_value_range:
+      - above: 30
+        then:
+          - delay: 1s
+      - below: 5
+        then:
+          - delay: 3s
+    on_value:
+      - then:
+          - lambda: !lambda ESP_LOGD("t", "now %f", x);
+      - then:
+          - delay: 2s

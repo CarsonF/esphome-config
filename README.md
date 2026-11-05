@@ -89,6 +89,41 @@ An entity's id is its `id` prop, else made from its `name`.
 `pwmFan({ name: 'Cooler', ... })` creates `cooler_output` and `cooler_fan`.
 Ids only reach the YAML when something refers to the entity.
 
+## TypeScript lambdas
+
+`esp.cpp(fn)` writes a `!lambda` from a TypeScript function:
+
+```ts
+import { esp } from 'esphome-config';
+import { id, millis, type u8 } from 'esphome-config/cpp';
+
+const HOLD_MS = 30_000;
+const startedMs = esp.global({ id: 'started_ms', initial_value: 0, type: 'uint32_t' });
+const tooHot = esp.global({ id: 'too_hot', initial_value: false });
+
+// `x` is the trigger's argument, typed from the trigger
+temp.on_value(esp.cpp((x) => { id(tooHot).value = x > 30.0; }));
+// a condition returns a boolean
+const holding = esp.cpp(() => millis() - id(startedMs).value < HOLD_MS);
+const start = esp.cpp(() => {
+  const level: u8 = 2;
+  id(startedMs).value = millis() + level;
+});
+```
+
+- `esphome-config/cpp` has what a body uses: `id`, ESPHome's functions and the C++ number types.
+- Entities and constants from the surrounding code are captured by name.
+- `id(entity)` has the entity's C++ members, e.g. `id(temp).state`,
+  and `id(global).value` is a global's value.
+- ESPHome's `millis()`, `micros()` and `ESP_LOGD` (and the other levels) can be called,
+  and `Math.min`, `Math.round` and the like become their C++ functions.
+- A local annotated `u8`, `i32`, `f32`, `boolean` or `string` gets that C++ type, else `auto`.
+- A body is a subset of TypeScript, and anything else fails the build, quoting the code.
+  It only works under `esphome-config build`, whose loader reads each function's source.
+
+`typescript` is a dependency of esphome-config, loaded only for device files that mention `cpp`.
+It stays on TypeScript 5, whose compiler API the transpiler uses.
+
 ## External components
 
 Types for third-party components come from their own schema, dumped by ESPHome itself:

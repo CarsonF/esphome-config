@@ -27,6 +27,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./cpp": {
+      "esphome-config-source": "./src/cpp.ts",
+      "types": "./dist/cpp.d.ts",
+      "default": "./dist/cpp.js"
+    },
     "./registry": {
       "esphome-config-source": "./src/generated/registry.ts",
       "types": "./dist/generated/registry.d.ts",
@@ -58,10 +63,10 @@
   "dependencies": {
     "fflate": "^0.8.3",
     "remeda": "^2.58.0",
+    "typescript": "^5.7.0",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "typescript": "^5.7.0"
+    "@types/node": "^24.0.0"
   }
 }

@@ -1,4 +1,5 @@
 import type { Entity } from './construct.ts';
+import { transpile } from './cpp-transpile.ts';
 import type { Global } from './global.ts';
 
 /**
@@ -7,8 +8,9 @@ import type { Global } from './global.ts';
  * Example: temp.on_value(cpp((x: number) => { id(tooHot).value = x > 30; }))
  */
 export function cpp<Args extends unknown[], Ret>(fn: (...args: Args) => Ret): CppFn<Args, Ret>;
-export function cpp(_fn: Fn): unknown {
-  throw new Error('cpp() needs the transpiler, which this version of esphome-config lacks');
+// `scan` is added by the loader, for what a function's own text can't say
+export function cpp(fn: Fn, scan?: Scan): unknown {
+  return transpile(fn, scan);
 }
 
 /**

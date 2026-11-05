@@ -1,0 +1,59 @@
+esphome:
+  name: cpp-demo
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+logger: {}
+globals:
+  - id: started_ms
+    type: uint32_t
+    initial_value: '0'
+  - id: too_hot
+    type: bool
+    initial_value: 'false'
+sensor:
+  - platform: adc
+    id: temperature
+    name: Temperature
+    pin: GPIO34
+    update_interval: 10s
+    on_value:
+      then:
+        - lambda: !lambda id(too_hot) = x > 30;
+switch:
+  - platform: template
+    id: sw_hold
+    name: Hold
+    optimistic: true
+    turn_on_action:
+      then:
+        - script.execute: hold
+    turn_off_action:
+      then:
+        - script.stop: hold
+script:
+  - id: hold
+    mode: restart
+    then:
+      - lambda: !lambda id(started_ms) = millis();
+      - while:
+          condition:
+            and:
+              - switch.is_on:
+                  id: sw_hold
+              - lambda: !lambda return millis() - id(started_ms) < 30000;
+          then:
+            - delay: 120ms
+      - switch.turn_off:
+          id: sw_hold
+interval:
+  - interval: 1s
+    then:
+      - lambda: !lambda |-
+          auto level = id(temperature).state > 28 ? 2 : 1;
+          if (id(too_hot) && id(temperature).has_state() && level > 1) {
+            id(sw_hold).turn_on();
+          } else {
+            id(sw_hold).turn_off();
+          }

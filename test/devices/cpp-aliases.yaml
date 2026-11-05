@@ -1,0 +1,30 @@
+esphome:
+  name: cpp-aliases
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+logger: {}
+globals:
+  - id: started_ms
+    type: uint32_t
+    initial_value: '0'
+switch:
+  - platform: template
+    id: sw_hold
+    name: Hold
+    optimistic: true
+interval:
+  - interval: 1s
+    then:
+      - lambda: !lambda |-
+          uint8_t level = 3;
+          id(started_ms) = millis() + level;
+      - lambda: !lambda |-
+          id(sw_hold).turn_on();
+          id(started_ms) = millis();
+      - lambda: !lambda |-
+          uint8_t level = 2;
+          id(sw_hold).turn_off();
+          id(started_ms) = level;
+      - lambda: !lambda id(sw_hold).toggle();

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { registerCppLoader } from './cpp-loader.ts';
 import type { Root } from './root.ts';
 
 /**
@@ -9,6 +10,8 @@ import type { Root } from './root.ts';
  * Example: await buildDevice('demo-fan') reads devices/demo-fan.ts
  */
 export async function buildDevice(name: string, options: BuildOptions = {}): Promise<string> {
+  // a device may write its lambdas as TypeScript with `cpp()`, which needs the loader
+  registerCppLoader();
   // the project's external component types, which add themselves to `esp`
   const external = resolve(process.cwd(), 'generated/external/register.ts');
   if (existsSync(external)) await import(pathToFileURL(external).href);
