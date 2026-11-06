@@ -311,6 +311,8 @@ interface Var {
   use_id_type?: string;
   id_type?: { class: string; parents: string[] | null };
   schema?: Schema;
+  /** `cv.maybe_simple_value`: the key a bare value is, e.g. `frames: int` for `{ type: int }`. */
+  maybe?: string;
 }
 
 interface Schema {
@@ -891,6 +893,14 @@ const customValidator = (v: Var): boolean =>
   !!v.data_type && !/^(u?int(8|16|32|64)_t|float|double)$/.test(v.data_type);
 
 async function nestedSchema(v: Var): Promise<string> {
+  const type = await schemaType(v);
+  const simple = v.maybe && v.schema ? (await flatten(v.schema))[v.maybe] : undefined;
+  const bare = simple && (await tsType(simple, v.maybe));
+  // an untyped key would make the whole field untyped
+  return bare && bare !== 'Any' && bare !== 'unknown' ? `${type} | ${bare}` : type;
+}
+
+async function schemaType(v: Var): Promise<string> {
   if (!v.schema) return 'Config';
   // a bare `cv.time_period` is `120ms`, not an object with no keys
   if ((v.schema.extends ?? []).some((ref) => /time_period/.test(ref)) && !v.schema.config_vars) {
