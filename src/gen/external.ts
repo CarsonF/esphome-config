@@ -107,14 +107,21 @@ function esphomePython(version: string): string {
     );
   }
   const actual = found.stdout.trim();
-  if (actual !== version) {
+  if (series(actual) !== series(version)) {
     throw new Error(
       `found ESPHome ${actual}, but esphome-config's types are for ESPHome ${version}: ` +
-        `install ESPHome ${version}, or an esphome-config release for ${actual}`,
+        `install ESPHome ${series(version)}.x, or esphome-config ${series(actual)}.x`,
     );
+  }
+  // a patch release rarely changes the schema
+  if (actual !== version) {
+    process.stderr.write(`warning: found ESPHome ${actual}; the types are for ${version}\n`);
   }
   return python;
 }
+
+/** `2026.9` for `2026.9.1`: the ESPHome release a version of this package follows. */
+const series = (version: string): string => version.split('.').slice(0, 2).join('.');
 
 /** The interpreter in a command's `#!` line, if it is a Python. */
 function interpreterOf(command: string): string | undefined {

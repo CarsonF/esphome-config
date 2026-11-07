@@ -29,8 +29,12 @@ Never commit real secrets, API keys or personal paths.
 
 Releases are automated with release-please.
 Commit messages (or squash-merged PR titles) follow [Conventional Commits](https://www.conventionalcommits.org):
-`fix:` makes a patch release, `feat:` a minor one, and `feat!:` or a `BREAKING CHANGE:` footer a major one.
-`chore:`, `docs:` and `ci:` do not trigger a release.
+`fix:` and `feat:` make a release, while `chore:`, `docs:` and `ci:` do not.
+
+A version is `<year>.<month>.<n>`, after the ESPHome release its types are for:
+`2026.9.n` is for ESPHome 2026.9.x, and every release bumps `n`.
+The commit that moves to a new ESPHome month carries a `Release-As: 2026.10.0` footer.
+Breaking changes wait for such a commit, so they come at most once a month.
 
 A bot keeps one release PR open with the version bump and changelog.
 Merging it tags the release.

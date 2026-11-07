@@ -46,8 +46,9 @@ Each release attaches a package tarball; depend on its URL:
 pnpm add https://github.com/CarsonF/esphome-config/releases/download/v<version>/esphome-config-<version>.tgz
 ```
 
-The package's types are for one ESPHome version, exported as `ESPHOME_VERSION`.
-Use the ESPHome release that matches it.
+A version follows the ESPHome release its types are for: `2026.9.n` is for ESPHome 2026.9.x.
+The exact ESPHome version is exported as `ESPHOME_VERSION`.
+Breaking changes only come with a new ESPHome month.
 
 Devices run on Node's built-in TypeScript support, so they use only erasable syntax.
 A `tsconfig.json` for a project of devices:

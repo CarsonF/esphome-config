@@ -64,7 +64,7 @@ let
         # the installed esphome-config's types must be for this ESPHome
         want=$(node -p "require('esphome-config/package.json').esphome.version")
         have=$(esphome version | sed 's/^Version: //')
-        if [ "$want" != "$have" ]; then
+        if [ "''${want%.*}" != "''${have%.*}" ]; then
           echo "esphome-config is for ESPHome $want, but the flake's ESPHome is $have:" \
             "use the esphome-config flake input of the same release as the package" >&2
           exit 1
