@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026.9.1](https://github.com/CarsonF/esphome-config/compare/v2026.9.0...v2026.9.1) (2026-11-08)
+
+
+### Features
+
+* `esp.external.<name>()` for each listed external component source ([f6dba90](https://github.com/CarsonF/esphome-config/commit/f6dba909a500cc56b65eacedfbaf47d86760b055))
+
 ## 2026.9.0 (2026-11-07)
 
 
