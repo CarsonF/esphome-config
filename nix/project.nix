@@ -24,6 +24,7 @@ let
 in
 {
   src,
+  # after a lockfile change, set a fake hash first: the old one reuses the old dependencies
   pnpmDepsHash,
   devices ? listDevices (src + "/${devicesDir}"),
   devicesDir ? "devices",

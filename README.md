@@ -178,7 +178,7 @@ Nix is optional; the flake wraps the same CLI with pinned inputs.
       project = esphome-config.lib.mkProject {
         inherit system;
         src = ./.;
-        # set it to the hash Nix prints, after each change to pnpm-lock.yaml
+        # pnpm-lock.yaml's dependencies, pinned: see "Updating pnpmDepsHash" below
         pnpmDepsHash = "sha256-...";
         externalComponents = [
           rec {
@@ -213,3 +213,30 @@ Nix is optional; the flake wraps the same CLI with pinned inputs.
   It would load its own copy of the library beside the one your devices import,
   and entities would not find their device; `mkProject` runs the CLI from your `node_modules`.
 
+### Updating pnpmDepsHash
+
+After a change to pnpm-lock.yaml, the old `pnpmDepsHash` still names the old dependencies,
+which Nix reuses instead of fetching the new ones.
+The build then fails with `ERR_PNPM_NO_OFFLINE_TARBALL` and never prints the new hash.
+Set a fake hash first, `sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=`,
+build, and copy the hash after `got:`.
+This script does that for a `pnpmDepsHash = "..."` line in flake.nix (GNU grep and sed):
+
+```sh
+#!/usr/bin/env bash
+# Sets pnpmDepsHash in flake.nix to the hash of pnpm-lock.yaml's dependencies.
+set -euo pipefail
+fake=sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+old=$(grep -oP 'pnpmDepsHash = "\K[^"]+' flake.nix)
+set_hash() { sed -i "s|pnpmDepsHash = \"[^\"]*\"|pnpmDepsHash = \"$1\"|" flake.nix; }
+
+set_hash "$fake"
+new=$(nix build .#default --no-link 2>&1 | grep -oP 'got:\s+\Ksha256-\S+' | head -n1 || true)
+if [ -z "$new" ]; then
+  set_hash "$old"
+  echo "the build printed no hash, so it failed for another reason: run nix build" >&2
+  exit 1
+fi
+set_hash "$new"
+echo "pnpmDepsHash = $new"
+```
