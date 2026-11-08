@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { buildDevice } from './dsl/build.ts';
-import { generateExternal } from './gen/external.ts';
+import { generateExternal, type SourceSpec } from './gen/external.ts';
 import { generate } from './gen/generate.ts';
 import { schemaDir } from './gen/schema.ts';
 
@@ -37,9 +37,12 @@ const USAGE = `usage: esphome-config <command>
   generate
     Writes this package's core types from the pinned ESPHome schema, into src/generated.
     ESPHOME_SCHEMA names a schema directory to use instead of downloading it.
-  generate-external <source>... [--out <dir>]
-    Writes the types of external components into generated/external, or --out.
+  generate-external <source> [--path <dir>] [--name <name>]... [--out <dir>]
+    Writes the types of external components into generated/external, or --out,
+    and esp.external.<name>() for each source, which adds its external_components entry.
     A source is github://<owner>/<repo>@<ref>, as in external_components, or a local directory.
+    --path reads the source's files from <dir> instead of fetching them;
+    --name names its esp.external.<name>(), else it is the repo's or directory's name.
     Needs the ESPHome the types are for: the \`esphome\` command's Python, or ESPHOME_PYTHON.
     --from-dump <dir> reads a schema dump of the components instead of running ESPHome.`;
 
@@ -61,15 +64,25 @@ async function generateCore(): Promise<void> {
 }
 
 async function generateExternalTypes(args: string[]): Promise<void> {
-  const sources: string[] = [];
+  const sources: SourceSpec[] = [];
   const flags: Record<string, string> = {};
   for (let i = 0; i < args.length; i++) {
-    if (args[i].startsWith('--')) flags[args[i]] = args[++i];
-    else sources.push(args[i]);
+    const [arg, value] = [args[i], args[i + 1]];
+    if (!arg.startsWith('--')) sources.push({ source: arg });
+    // `--path` and `--name` belong to the source before them
+    else if (arg === '--path' || arg === '--name') {
+      const current = sources.at(-1);
+      if (!current || value === undefined) throw new Error(`${arg} follows a source: ${USAGE}`);
+      current[arg === '--path' ? 'path' : 'name'] = value;
+      i++;
+    } else {
+      flags[arg] = value;
+      i++;
+    }
   }
-  const fromDump = flags['--from-dump'];
-  if (sources.length === 0 && !fromDump) throw new Error(USAGE);
+  if (sources.length === 0) throw new Error(USAGE);
   const out = resolve(flags['--out'] ?? 'generated/external');
+  const fromDump = flags['--from-dump'];
   await generateExternal({ version: pinnedVersion(), sources, out, fromDump });
 }
 

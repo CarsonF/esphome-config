@@ -130,6 +130,8 @@
               pnpm typecheck
               node_modules/.bin/tsc -p test/roode
               node --conditions=esphome-config-source --test test/external.test.ts
+              (cd test/roode && node --conditions=esphome-config-source ../../src/cli.ts build roode32) \
+                | diff - test/roode/devices/roode32.yaml
             '';
             installPhase = ''
               ${validate "test/consumer" "external-fixture" fixture}

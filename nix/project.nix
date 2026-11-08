@@ -1,7 +1,8 @@
 # A consumer's devices as YAML, with a check that runs `esphome config` on each.
 # `src` has package.json and pnpm-lock.yaml, with esphome-config as a dependency, and devices.
-# Each of `externalComponents` is `{ src, source }`: the repo, and the `external_components`
-# source the devices name it by, which the check swaps for `src` since it has no network.
+# Each of `externalComponents` is `{ src, source, name ? <repo name> }`: the repo,
+# its `external_components` source, and its `esp.external.<name>()`, which adds that source;
+# the check swaps the source for `src`, since it has no network.
 {
   lib,
   stdenv,

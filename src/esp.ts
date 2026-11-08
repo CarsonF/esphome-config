@@ -5,7 +5,13 @@ import { globals } from './dsl/global.ts';
 import { cpp } from './dsl/cpp.ts';
 import { currentScope, device, lambda, secret, type Construct } from './dsl/index.ts';
 import * as real from './generated/index.ts';
-import type { Actions, Components, Conditions, Domains } from './generated/registry.ts';
+import type {
+  Actions,
+  Components,
+  Conditions,
+  Domains,
+  ExternalSources,
+} from './generated/registry.ts';
 
 /**
  * Everything ESPHome has, as `esp.<domain>.<platform>(...)` and `esp.<component>(...)`.
@@ -40,6 +46,8 @@ function handWritten() {
     api,
     // one entry of the `external_components:` list, which each call adds to
     external_component: real.external_components,
+    // `esp.external.<name>()` for each generated external component source
+    external: {},
     actions: { doWhile },
   };
 }
@@ -56,9 +64,10 @@ type HandWritten = ReturnType<typeof handWritten>;
 /** The interfaces in generated/registry.ts are what external components extend. */
 type Esp = Domains &
   Omit<Components, keyof HandWritten | 'external_components'> &
-  Omit<HandWritten, 'actions'> & {
+  Omit<HandWritten, 'actions' | 'external'> & {
     actions: Actions & HandWritten['actions'];
     conditions: Conditions;
+    external: ExternalSources;
   };
 
 function isGroup(value: unknown): value is Record<string, unknown> {

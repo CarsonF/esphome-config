@@ -1,0 +1,51 @@
+esphome:
+  name: roode32
+esp32:
+  board: wemos_d1_mini32
+  framework:
+    type: arduino
+wifi:
+  ssid: !secret ssid1
+  password: !secret ssid1_password
+api:
+  actions:
+    - action: recalibrate
+      then:
+        - lambda: !lambda id(roode_platform)->recalibration();
+external_components:
+  source: github://Lyr3x/Roode@b975cec4e5570c393d35ce7a9778c8d599865961
+  components:
+    - roode
+    - vl53l1x
+    - persisted_number
+i2c:
+  sda: 21
+  scl: 22
+vl53l1x:
+  calibration:
+    ranging: auto
+roode:
+  id: roode_platform
+  sampling: 2
+  roi:
+    height: 16
+    width: 6
+  detection_thresholds:
+    max: 85%
+  zones:
+    invert: true
+number:
+  - platform: roode
+    people_counter:
+      name: people counter
+binary_sensor:
+  - platform: roode
+    presence_sensor:
+      name: presence
+sensor:
+  - platform: roode
+    id: roode_sensor
+    distance_entry:
+      name: distance zone 0
+      filters:
+        - delta: 100

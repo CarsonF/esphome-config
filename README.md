@@ -127,23 +127,31 @@ It stays on TypeScript 5, whose compiler API the transpiler uses.
 
 ## External components
 
-Types for third-party components come from their own schema, dumped by ESPHome itself:
+Types for third-party components come from their own schema, dumped by ESPHome itself.
+List each source once, here (or in Nix, below):
 
 ```sh
 esphome-config generate-external github://<owner>/<repo>@<ref> ./my-components
 ```
 
+Devices then add a source with `esp.external.<name>()`, and never repeat its string:
+
 ```ts
-esp.external_component({ source: 'github://<owner>/<repo>@<ref>', components: ['my_sensor'] });
+esp.external.repo(); // the `external_components` entry, with all the source's components
 esp.sensor.my_sensor({ name: 'Level', channel: 3 });
 ```
 
 - A source is `github://<owner>/<repo>@<ref>`, as in `external_components`, or a local directory.
   Components are read from its `components/` directory, if it has one.
+- `esp.external.<name>()` is named after the repo or directory, or `--name <name>` after the source.
+  It takes some of the source's components, like `esp.external.repo('my_sensor')`, or all of them.
+  Calling it again, from any device or construct, adds to the same entry.
+- `--path <dir>` after a source reads its files from `<dir>`, instead of fetching them.
 - It writes `generated/external` (or `--out <dir>`), which `esphome-config build` loads,
   so `esp` has the new components; commit it or regenerate it, as you like.
-- It needs the ESPHome release the package's types are for, and fails if it finds another.
+- It needs ESPHome from the month the package's types are for, and fails if it finds another.
   It runs the Python of the `esphome` command, or `ESPHOME_PYTHON`.
+- `esp.external_component({ source, ... })` still adds a source that isn't listed.
 - The ESPHome schema and its schema script are downloaded once,
   and cached under `~/.cache/esphome-config`.
 
@@ -181,8 +189,10 @@ Nix is optional; the flake wraps the same CLI with pinned inputs.
               inherit rev;
               hash = "sha256-...";
             };
-            # the `source` the devices use; the check reads `src` instead, offline
+            # the YAML's source, which the check swaps for `src`, offline
             source = "github://<owner>/<repo>@${rev}";
+            # devices call `esp.external.<name>()`; the repo's name if omitted
+            name = "my_components";
           }
         ];
       };
@@ -197,6 +207,7 @@ Nix is optional; the flake wraps the same CLI with pinned inputs.
 
 - Use the flake input of the same release as the package in package.json:
   the build fails if their ESPHome versions differ.
+- Each source is listed only here: devices add it with `esp.external.<name>()`.
 - `lib.mkExternalTypes { system; externalComponents; }` is just the `generated/external` directory.
 - Don't `nix run` the flake's CLI on your devices.
   It would load its own copy of the library beside the one your devices import,

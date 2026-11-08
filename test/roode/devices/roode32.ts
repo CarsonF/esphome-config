@@ -3,10 +3,7 @@ import { esp } from 'esphome-config';
 /** Roode's own example (peopleCounter32.yaml), to try its external components. */
 export default esp.device('roode32', () => {
   esp.esp32({ board: 'wemos_d1_mini32', framework: { type: 'arduino' } });
-  esp.external_component({
-    source: 'github://Lyr3x/Roode@b975cec4e5570c393d35ce7a9778c8d599865961',
-    components: ['roode', 'vl53l1x', 'persisted_number'],
-  });
+  esp.external.roode('roode', 'vl53l1x', 'persisted_number');
   esp.wifi({ ssid: esp.secret('ssid1'), password: esp.secret('ssid1_password') });
   esp.i2c({ sda: 21, scl: 22 });
   esp.vl53l1x({ calibration: { ranging: 'auto' } });

@@ -10,23 +10,25 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, join, resolve } from 'node:path';
+import { basename, delimiter, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { generate } from './generate.ts';
+import { generate, type ExternalSource } from './generate.ts';
 import { cacheRoot, schemaDir } from './schema.ts';
 
 /**
  * Writes the types of external components into `out`: their schema is dumped by the ESPHome
  * on PATH, which must be the version the package's types are for.
- * A source is `github://<owner>/<repo>@<ref>`, as in `external_components`, or a local directory.
- * Example: await generateExternal({ version, sources: ['github://Lyr3x/Roode@b975cec'], out })
+ * Each source also gets an `esp.external.<name>()` that adds its `external_components` entry.
+ * Example: await generateExternal({ version, sources: [{ source: 'github://o/r@v1' }], out })
  */
 export async function generateExternal(options: ExternalOptions): Promise<void> {
   const { version, out, fromDump } = options;
-  const external = fromDump ?? (await dumpSchema(version, options.sources.map(componentsDir)));
+  const sources = options.sources.map(resolveSource);
+  checkNames(sources);
+  const external = fromDump ?? (await dumpSchema(version, sources.map((source) => source.dir)));
   try {
-    await generate({ version, schema: await schemaDir(version), out, external });
+    await generate({ version, schema: await schemaDir(version), out, external, sources });
   } finally {
     if (!fromDump) rmSync(external, { recursive: true, force: true });
   }
@@ -35,17 +37,70 @@ export async function generateExternal(options: ExternalOptions): Promise<void> 
 export interface ExternalOptions {
   /** The ESPHome version of the package's core types. */
   version: string;
-  sources: string[];
+  sources: SourceSpec[];
   out: string;
   /** A schema dump to read instead of running ESPHome, one `<component>.json` each. */
   fromDump?: string;
 }
 
+/** Example: { source: 'github://example/fixture@main', path: 'test/external-fixture' } */
+export interface SourceSpec {
+  /** `github://<owner>/<repo>@<ref>`, as `external_components` takes it, or a local directory. */
+  source: string;
+  /** The source's files, to read instead of fetching it. */
+  path?: string;
+  /** Its `esp.external.<name>()`; the repo's or directory's name if omitted. */
+  name?: string;
+}
+
 //#region Sources
+
+interface Resolved extends ExternalSource {
+  /** The directory with one subdirectory per component. */
+  dir: string;
+}
+
+function resolveSource(spec: SourceSpec): Resolved {
+  const github = GITHUB.exec(spec.source);
+  const dir = componentsDir(spec.path ?? spec.source);
+  const name = spec.name ?? identifierOf(github ? github[2] : basename(resolve(spec.source)));
+  if (!IDENTIFIER.test(name)) {
+    throw new Error(`external component source ${spec.source}: "${name}" is not a valid name`);
+  }
+  const components = readdirSync(dir)
+    .filter((entry) => existsSync(join(dir, entry, '__init__.py')))
+    .sort();
+  if (components.length === 0) throw new Error(`${spec.source} has no components in ${dir}`);
+  // a local directory is a `type: local` source, which ESPHome reads by path
+  const source = github ? spec.source : { type: 'local' as const, path: dir };
+  return { name, source, components, dir };
+}
+
+/** Two sources can't share an `esp.external.<name>()`. */
+function checkNames(sources: Resolved[]): void {
+  for (const [name, same] of Map.groupBy(sources, (source) => source.name)) {
+    if (same.length < 2) continue;
+    const listed = same.map(({ source }) => JSON.stringify(source)).join(' and ');
+    throw new Error(
+      `two external component sources are named "${name}": ${listed}; ` +
+        'give one another name (--name after it, or `name` in Nix)',
+    );
+  }
+}
+
+const GITHUB = /^github:\/\/([^/]+)\/([^/@]+)(?:@(.+))?$/;
+const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** `Roode` is `roode`, `esphome-components` is `esphome_components`. */
+const identifierOf = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^[_0-9]+|_+$/g, '');
 
 /** The directory with one subdirectory per component, cloning a GitHub source first. */
 function componentsDir(source: string): string {
-  const github = /^github:\/\/([^/]+)\/([^/@]+)(?:@(.+))?$/.exec(source);
+  const github = GITHUB.exec(source);
   const root = github ? clone(github[1], github[2], github[3] ?? 'HEAD') : resolve(source);
   if (!existsSync(root)) throw new Error(`external component source ${source} does not exist`);
   return existsSync(join(root, 'components')) ? join(root, 'components') : root;

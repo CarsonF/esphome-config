@@ -1,5 +1,7 @@
-# The types of external components, as a project's `generated/external`.
-# Each of `externalComponents` is `{ src, ... }`: a repo whose `components/` has one directory each.
+# The types of external components, as a project's `generated/external`,
+# with `esp.external.<name>()` for each.
+# Each of `externalComponents` is `{ src, source, name ? <repo name> }`:
+# a repo whose `components/` has one directory each, and the `external_components` source for it.
 {
   lib,
   runCommand,
@@ -7,6 +9,19 @@
   esphome-config,
 }:
 externalComponents:
+let
+  sourceArgs =
+    c:
+    [
+      (c.source or (throw "esphome-config: an external component needs its `source`"))
+      "--path"
+      "${c.src}"
+    ]
+    ++ lib.optionals (c ? name) [
+      "--name"
+      c.name
+    ];
+in
 runCommand "esphome-config-external-types"
   {
     nativeBuildInputs = [
@@ -20,7 +35,5 @@ runCommand "esphome-config-external-types"
   }
   ''
     export HOME=$TMPDIR
-    esphome-config generate-external ${
-      lib.escapeShellArgs (map (c: "${c.src}") externalComponents)
-    } --out $out
+    esphome-config generate-external ${lib.escapeShellArgs (lib.concatMap sourceArgs externalComponents)} --out $out
   ''
