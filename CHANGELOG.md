@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026.9.2](https://github.com/CarsonF/esphome-config/compare/v2026.9.1...v2026.9.2) (2026-11-10)
+
+
+### Features
+
+* the package ships ESPHome's language schema, the one its types were generated from, so `generate-external` no longer downloads it ([a46398f](https://github.com/CarsonF/esphome-config/commit/a46398fa7a90452411f4655b47133de6bfad5188))
+
+
+### Bug Fixes
+
+* options ESPHome fills in before validating, like `esphome.build_path`, are optional ([290aa86](https://github.com/CarsonF/esphome-config/commit/290aa8616929bd267e5c1cfb426a30e586419b2d))
+
 ## [2026.9.1](https://github.com/CarsonF/esphome-config/compare/v2026.9.0...v2026.9.1) (2026-11-08)
 
 
