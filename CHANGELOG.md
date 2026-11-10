@@ -5,16 +5,12 @@
 
 ### Features
 
-* build ESPHome's schema from pinned sources ([a46398f](https://github.com/CarsonF/esphome-config/commit/a46398fa7a90452411f4655b47133de6bfad5188))
-* follow new ESPHome releases ahead of nixpkgs ([c8fc299](https://github.com/CarsonF/esphome-config/commit/c8fc299c681235ad843ca148c68658c92c833ad2))
+* the package ships ESPHome's language schema, the one its types were generated from, so `generate-external` no longer downloads it ([a46398f](https://github.com/CarsonF/esphome-config/commit/a46398fa7a90452411f4655b47133de6bfad5188))
 
 
 ### Bug Fixes
 
-* fetch ESPHome's source before the bump reads its schema script ([551e91a](https://github.com/CarsonF/esphome-config/commit/551e91a76805acc3a62ac77542c823851dab1995))
-* follow nixpkgs' ESPHome instead of overriding it ([c0b47d3](https://github.com/CarsonF/esphome-config/commit/c0b47d3f5343d00f30c9d8ef9d4b1470b7e875c6))
-* treat options ESPHome fills in before validating as optional ([290aa86](https://github.com/CarsonF/esphome-config/commit/290aa8616929bd267e5c1cfb426a30e586419b2d))
-* undo moving main to ESPHome 2026.10.1 ([27dd552](https://github.com/CarsonF/esphome-config/commit/27dd552d3544c152ee51b0ee595ba6a9b2006c45))
+* options ESPHome fills in before validating, like `esphome.build_path`, are optional ([290aa86](https://github.com/CarsonF/esphome-config/commit/290aa8616929bd267e5c1cfb426a30e586419b2d))
 
 ## [2026.9.1](https://github.com/CarsonF/esphome-config/compare/v2026.9.0...v2026.9.1) (2026-11-08)
 
