@@ -364,7 +364,25 @@ async function load(file: string): Promise<Json> {
     .filter((dir) => dir !== undefined)
     .map((dir) => `${dir}/${file}.json`)
     .find((candidate) => existsSync(candidate));
-  return path ? JSON.parse(readFileSync(path, 'utf8')) : {};
+  return path ? withFilledOptional(JSON.parse(readFileSync(path, 'utf8'))) : {};
+}
+
+/**
+ * Options the schema marks Required that ESPHome fills in before validating, so configs omit them,
+ * by `<namespace>.<schema>`.
+ */
+const FILLED_BEFORE_VALIDATION: Record<string, string[]> = {
+  // set from the device name in `preload_core_config` when absent
+  'esphome.CONFIG_SCHEMA': ['build_path'],
+};
+
+function withFilledOptional(root: Json): Json {
+  for (const [path, keys] of Object.entries(FILLED_BEFORE_VALIDATION)) {
+    const [namespace, schema] = path.split('.');
+    const vars = root[namespace]?.schemas?.[schema]?.schema?.config_vars;
+    for (const key of keys) if (vars?.[key]) vars[key].key = 'Optional';
+  }
+  return root;
 }
 
 /** `sensor._SENSOR_SCHEMA` lives in sensor.json, `core.X` in esphome.json. */
