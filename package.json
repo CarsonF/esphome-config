@@ -19,7 +19,7 @@
   "author": "Carson Full <carson@full.family>",
   "type": "module",
   "esphome": {
-    "version": "2026.9.1"
+    "version": "2026.10.1"
   },
   "exports": {
     ".": {
