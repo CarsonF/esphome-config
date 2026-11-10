@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { cpSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { buildDevice } from './dsl/build.ts';
@@ -35,8 +35,8 @@ const USAGE = `usage: esphome-config <command>
     Prints devices/<device>.ts as YAML, or with --secrets a dummy secrets.yaml for it.
     ESPHOME_DEVICES sets the devices directory.
   generate
-    Writes this package's core types from the pinned ESPHome schema, into src/generated.
-    ESPHOME_SCHEMA names a schema directory to use instead of downloading it.
+    Writes this package's core types from ESPHome's schema, into src/generated.
+    ESPHOME_SCHEMA names the schema directory: \`nix develop\` sets it to \`nix build .#schema\`.
   generate-external <source> [--path <dir>] [--name <name>]... [--out <dir>]
     Writes the types of external components into generated/external, or --out,
     and esp.external.<name>() for each source, which adds its external_components entry.
@@ -60,7 +60,10 @@ async function build(args: string[]): Promise<void> {
 async function generateCore(): Promise<void> {
   const version = pinnedVersion();
   const out = fileURLToPath(new URL('generated', import.meta.url));
-  await generate({ version, schema: await schemaDir(version), out });
+  const schema = schemaDir();
+  await generate({ version, schema, out });
+  // shipped beside the types, for generating external components' types
+  cpSync(schema, join(out, 'schema'), { recursive: true });
 }
 
 async function generateExternalTypes(args: string[]): Promise<void> {

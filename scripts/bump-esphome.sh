@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Moves the package to the ESPHome of the latest nixpkgs: flake.lock, package.json's version,
-# the schema hash and the fixture's schema dump.
+# the esphome.io hash for the schema's docs, and the fixture's schema dump.
 # Usage: scripts/bump-esphome.sh
 # Prints `status=` bumped, or current when nixpkgs has no newer ESPHome,
 # also to $GITHUB_OUTPUT with `version=` and `release_as=`.
@@ -41,10 +41,11 @@ if [[ $version == "$current" || $newest == "$current" ]]; then
 fi
 
 set_json package.json ".esphome.version = \"$version\""
-set_json nix/schema-hashes.json "{ \"$version\": \"$fake\" }"
-schema=$(got_hash .#schema)
-[[ -n $schema ]] || { echo "no schema hash for ESPHome $version" >&2; exit 1; }
-set_json nix/schema-hashes.json "{ \"$version\": \"$schema\" }"
+# esphome.io's source at the release's tag, for the schema's docs
+set_json nix/docs-hashes.json "{ \"$version\": \"$fake\" }"
+docs=$(got_hash .#schema)
+[[ -n $docs ]] || { echo "no esphome.io hash for ESPHome $version" >&2; exit 1; }
+set_json nix/docs-hashes.json "{ \"$version\": \"$docs\" }"
 
 # the fixture's schema, as this ESPHome dumps it
 # built, not just evaluated, so the source is on disk

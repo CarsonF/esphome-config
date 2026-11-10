@@ -28,7 +28,7 @@ export async function generateExternal(options: ExternalOptions): Promise<void> 
   checkNames(sources);
   const external = fromDump ?? (await dumpSchema(version, sources.map((source) => source.dir)));
   try {
-    await generate({ version, schema: await schemaDir(version), out, external, sources });
+    await generate({ version, schema: schemaDir(), out, external, sources });
   } finally {
     if (!fromDump) rmSync(external, { recursive: true, force: true });
   }

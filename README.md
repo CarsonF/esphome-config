@@ -152,8 +152,8 @@ esp.sensor.my_sensor({ name: 'Level', channel: 3 });
 - It needs ESPHome from the month the package's types are for, and fails if it finds another.
   It runs the Python of the `esphome` command, or `ESPHOME_PYTHON`.
 - `esp.external_component({ source, ... })` still adds a source that isn't listed.
-- The ESPHome schema and its schema script are downloaded once,
-  and cached under `~/.cache/esphome-config`.
+- The core schema ships with the package, the one its types were generated from;
+  ESPHome's schema script is downloaded once, and cached under `~/.cache/esphome-config`.
 
 ## Your own npm dependencies
 

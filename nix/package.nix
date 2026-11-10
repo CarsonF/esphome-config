@@ -4,8 +4,8 @@
   nodejs_24,
   pnpm,
   pnpmConfigHook,
-  fetchPnpmDeps,
   makeWrapper,
+  pnpmDeps,
   schema,
 }:
 let
@@ -28,11 +28,7 @@ stdenv.mkDerivation (finalAttrs: {
     ];
   };
 
-  pnpmDeps = fetchPnpmDeps {
-    inherit (finalAttrs) pname version src;
-    fetcherVersion = 5;
-    hash = lib.removeSuffix "\n" (builtins.readFile ./pnpm-deps.hash);
-  };
+  inherit pnpmDeps;
 
   nativeBuildInputs = [
     nodejs_24

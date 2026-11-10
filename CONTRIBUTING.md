@@ -1,16 +1,22 @@
 # Contributing
 
 ```sh
+nix develop    # Node, pnpm, ESPHome, and ESPHOME_SCHEMA
 pnpm install
-pnpm generate  # src/generated, from the ESPHome schema pinned in package.json
+pnpm generate  # src/generated, from ESPHome's schema
 pnpm typecheck
 pnpm test
 pnpm pack      # the release tarball
 ```
 
-`pnpm generate` downloads the schema release for `esphome.version` in package.json,
-and caches it under `~/.cache/esphome-config`.
-`ESPHOME_SCHEMA` names a schema directory to use instead.
+`pnpm generate` reads ESPHome's language schema from `ESPHOME_SCHEMA`, which `nix develop` sets
+to `nix build .#schema`.
+The flake builds it from pinned sources, as esphome-schema's releases are built:
+the structure from ESPHome's own script, run with nixpkgs' ESPHome,
+and the docs from esphome.io's docs script at the release's tag,
+whose hash is in `nix/docs-hashes.json`.
+The docs script's npm packages are this repo's dev dependencies, at esphome.io's versions.
+The package ships that schema beside the core types, for generating external components' types.
 
 `pnpm generate` also writes the fixture's external types into `test/consumer/generated/external`,
 from the schema dump in `test/external-fixture/schema`.
@@ -45,7 +51,7 @@ to the GitHub release.
 
 The types follow the ESPHome that nixpkgs ships, so the flake's ESPHome is nixpkgs' own package.
 A scheduled workflow, or `scripts/bump-esphome.sh` by hand, updates `flake.lock` to the latest
-nixpkgs, and if its ESPHome is newer, moves package.json's `esphome.version`, the schema hash
+nixpkgs, and if its ESPHome is newer, moves package.json's `esphome.version`, the esphome.io hash
 and the fixture's schema dump to it.
 
 The workflow runs `nix flake check` and opens a PR on `esphome/<version>`,
@@ -57,7 +63,7 @@ A new ESPHome month's commit carries `Release-As: <year>.<month>.0`; keep it whe
 
 Nix is optional.
 `nix develop` has Node, pnpm and the matching ESPHome,
-and points `ESPHOME_SCHEMA` at the pinned schema.
+and points `ESPHOME_SCHEMA` at the flake's schema.
 `nix build` builds the package with its tests, and `nix flake check` also validates each test device
 with `esphome config`.
 The flake fails to evaluate if nixpkgs' ESPHome differs from `esphome.version` in package.json.

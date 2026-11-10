@@ -15,6 +15,13 @@ updates:
       # cpp() parses TypeScript with the JS compiler API, which typescript@7 does not export
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
+      # esphome.io's docs script imports these, at the versions its lockfile pins
+      - dependency-name: unified
+      - dependency-name: remark-parse
+      - dependency-name: remark-mdx
+      - dependency-name: remark-math
+      - dependency-name: mdast-util-to-string
+      - dependency-name: github-slugger
     groups:
       minor-and-patch:
         applies-to: version-updates

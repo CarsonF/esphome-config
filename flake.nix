@@ -25,7 +25,13 @@
             "esphome-config: nixpkgs has ESPHome ${pkgs.esphome.version}, "
             + "but the types are for ${esphomeVersion}: run scripts/bump-esphome.sh"
           );
-      schemaFor = pkgs: pkgs.callPackage ./nix/schema.nix { } esphomeVersion;
+      pnpmDepsFor = pkgs: pkgs.callPackage ./nix/pnpm-deps.nix { };
+      schemaFor =
+        pkgs:
+        pkgs.callPackage ./nix/schema.nix {
+          esphome = esphomeFor pkgs;
+          pnpmDeps = pnpmDepsFor pkgs;
+        };
       mkExternalTypesFor =
         pkgs:
         pkgs.callPackage ./nix/external.nix {
@@ -41,7 +47,10 @@
     in
     {
       packages = forAllSystems (pkgs: rec {
-        esphome-config = pkgs.callPackage ./nix/package.nix { schema = schemaFor pkgs; };
+        esphome-config = pkgs.callPackage ./nix/package.nix {
+          schema = schemaFor pkgs;
+          pnpmDeps = pnpmDepsFor pkgs;
+        };
         schema = schemaFor pkgs;
         esphome = esphomeFor pkgs;
         default = esphome-config;
