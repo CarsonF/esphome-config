@@ -1,14 +1,10 @@
 name: ESPHome bump
 
-# opens a PR moving the types to ESPHome's latest release; it never merges one
+# opens a PR moving the types to the ESPHome of the latest nixpkgs; it never merges one
 on:
   schedule:
     - cron: '23 7 * * *'
   workflow_dispatch:
-    inputs:
-      version:
-        description: ESPHome version, else its latest release
-        required: false
 
 permissions:
   contents: read
@@ -28,35 +24,29 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
-      - name: Pick the version
-        id: pick
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          version=${VERSION:-$(gh api repos/esphome/esphome/releases/latest --jq .tag_name)}
-          echo "version=$version" >>"$GITHUB_OUTPUT"
-          # a PR for it is already open, or was closed: either way, nothing to do
-          if git ls-remote --exit-code origin "refs/heads/esphome/$version" >/dev/null; then
-            echo "::notice::esphome/$version exists already"
-            echo "skip=true" >>"$GITHUB_OUTPUT"
-          fi
       - name: Bump
         id: bump
-        if: steps.pick.outputs.skip != 'true'
-        run: scripts/bump-esphome.sh "${{ steps.pick.outputs.version }}"
-      - name: Report waiting for nixpkgs
-        if: steps.bump.outputs.status == 'waiting'
-        run: echo "::notice::nixpkgs' ESPHome can't be moved to ${{ steps.pick.outputs.version }} yet"
+        run: scripts/bump-esphome.sh
+      - name: Skip a version that has a branch
+        id: branch
+        if: steps.bump.outputs.status == 'bumped'
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          # its PR is open, or was closed: either way, nothing to do
+          if git ls-remote --exit-code origin "refs/heads/esphome/$VERSION" >/dev/null; then
+            echo "::notice::esphome/$VERSION exists already"
+            echo "exists=true" >>"$GITHUB_OUTPUT"
+          fi
       - name: Check
         id: check
-        if: steps.bump.outputs.status == 'bumped'
+        if: steps.bump.outputs.status == 'bumped' && steps.branch.outputs.exists != 'true'
         continue-on-error: true
         run: nix flake check --print-build-logs
       - name: Open the PR
-        if: steps.bump.outputs.status == 'bumped'
+        if: steps.bump.outputs.status == 'bumped' && steps.branch.outputs.exists != 'true'
         env:
-          VERSION: ${{ steps.pick.outputs.version }}
-          OVERRIDE: ${{ steps.bump.outputs.override }}
+          VERSION: ${{ steps.bump.outputs.version }}
           RELEASE_AS: ${{ steps.bump.outputs.release_as }}
           CHECKED: ${{ steps.check.outcome }}
         run: |
@@ -67,10 +57,6 @@ jobs:
           git add -A
           {
             echo "feat: types for ESPHome $VERSION"
-            if [[ $OVERRIDE == true ]]; then
-              echo
-              echo "nixpkgs' ESPHome is overridden to $VERSION until nixpkgs has it."
-            fi
             if [[ -n $RELEASE_AS ]]; then
               echo
               echo "Release-As: $RELEASE_AS"
@@ -80,14 +66,9 @@ jobs:
           git push origin "$branch"
 
           {
-            echo "Moves the types to ESPHome $VERSION."
+            echo "Moves the types and flake.lock to ESPHome $VERSION, the version nixpkgs has."
+            if [[ -n $RELEASE_AS ]]; then echo "Merging it releases $RELEASE_AS."; fi
             echo
-            if [[ $OVERRIDE == true ]]; then
-              echo "nixpkgs doesn't have it yet, so \`nix/esphome-src.json\` overrides its ESPHome's source."
-              echo "ESPHome's own test suite is skipped in the override; this repo's checks ran instead,"
-              echo "but the dev shell's \`esphome\` may lag its newest Python dependencies until nixpkgs catches up."
-              echo
-            fi
             if [[ $CHECKED == success ]]; then
               echo "\`nix flake check\` passed."
             else

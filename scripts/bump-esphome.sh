@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Moves the package to an ESPHome release: package.json's version, the schema hash, flake.lock,
-# an override of nixpkgs' ESPHome while it is behind, and the fixture's schema dump.
-# Usage: scripts/bump-esphome.sh [<version>], ESPHome's latest release by default.
-# Prints `status=` bumped, current (nothing to do) or waiting (nixpkgs' ESPHome can't be moved),
-# also to $GITHUB_OUTPUT with `version=`, `override=` and `release_as=`.
+# Moves the package to the ESPHome of the latest nixpkgs: flake.lock, package.json's version,
+# the schema hash and the fixture's schema dump.
+# Usage: scripts/bump-esphome.sh
+# Prints `status=` bumped, or current when nixpkgs has no newer ESPHome,
+# also to $GITHUB_OUTPUT with `version=` and `release_as=`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 fake=sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-version=${1:-$(gh api repos/esphome/esphome/releases/latest --jq .tag_name)}
 current=$(jq -r .esphome.version package.json)
 
 output() {
@@ -29,8 +28,14 @@ set_json() {
   mv "$1.tmp" "$1"
 }
 
+nix flake update nixpkgs
+rev=$(jq -r .nodes.nixpkgs.locked.rev flake.lock)
+version=$(nix eval --raw "github:NixOS/nixpkgs/$rev#esphome.version")
 output "version=$version"
-if [[ $version == "$current" ]]; then
+newest=$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n1)
+if [[ $version == "$current" || $newest == "$current" ]]; then
+  # flake.lock only moves with ESPHome
+  git checkout -- flake.lock
   output "status=current"
   exit 0
 fi
@@ -40,32 +45,6 @@ set_json nix/schema-hashes.json "{ \"$version\": \"$fake\" }"
 schema=$(got_hash .#schema)
 [[ -n $schema ]] || { echo "no schema hash for ESPHome $version" >&2; exit 1; }
 set_json nix/schema-hashes.json "{ \"$version\": \"$schema\" }"
-
-nix flake update nixpkgs
-rev=$(jq -r .nodes.nixpkgs.locked.rev flake.lock)
-packaged=$(nix eval --raw "github:NixOS/nixpkgs/$rev#esphome.version")
-rm -f nix/esphome-src.json
-if [[ $packaged == "$version" ]]; then
-  output "override=false"
-else
-  echo "nixpkgs has ESPHome $packaged: overriding its source to $version"
-  echo "{ \"version\": \"$version\", \"hash\": \"$fake\" }" | jq . >nix/esphome-src.json
-  # the flake only sees files git knows
-  git add --intent-to-add nix/esphome-src.json
-  src=$(got_hash .#esphome)
-  if [[ -n $src ]]; then
-    set_json nix/esphome-src.json ".hash = \"$src\""
-  fi
-  if [[ -z $src ]] || ! nix build .#esphome --no-link; then
-    echo "nixpkgs' ESPHome $packaged doesn't build as $version: waiting for nixpkgs" >&2
-    git rm --cached --quiet -f nix/esphome-src.json
-    rm -f nix/esphome-src.json
-    git checkout -- package.json nix/schema-hashes.json flake.lock
-    output "status=waiting"
-    exit 0
-  fi
-  output "override=true"
-fi
 
 # the fixture's schema, as this ESPHome dumps it
 script="$(nix eval --raw .#esphome.src)/script/build_language_schema.py"

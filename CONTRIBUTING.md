@@ -43,11 +43,10 @@ to the GitHub release.
 
 ## ESPHome updates
 
-A scheduled workflow, or `scripts/bump-esphome.sh [<version>]` by hand, moves to a new ESPHome:
-package.json's `esphome.version`, the schema hash, `flake.lock` and the fixture's schema dump.
-While nixpkgs is behind, `nix/esphome-src.json` overrides its ESPHome's source to the new version,
-with ESPHome's own tests skipped; the next bump drops it once nixpkgs catches up.
-If the override doesn't build, the workflow waits for nixpkgs and opens nothing.
+The types follow the ESPHome that nixpkgs ships, so the flake's ESPHome is nixpkgs' own package.
+A scheduled workflow, or `scripts/bump-esphome.sh` by hand, updates `flake.lock` to the latest
+nixpkgs, and if its ESPHome is newer, moves package.json's `esphome.version`, the schema hash
+and the fixture's schema dump to it.
 
 The workflow runs `nix flake check` and opens a PR on `esphome/<version>`,
 a draft if a check failed.
