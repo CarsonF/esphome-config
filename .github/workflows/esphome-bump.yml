@@ -1,0 +1,101 @@
+name: ESPHome bump
+
+# opens a PR moving the types to ESPHome's latest release; it never merges one
+on:
+  schedule:
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: ESPHome version, else its latest release
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: esphome-bump
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Pick the version
+        id: pick
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          version=${VERSION:-$(gh api repos/esphome/esphome/releases/latest --jq .tag_name)}
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          # a PR for it is already open, or was closed: either way, nothing to do
+          if git ls-remote --exit-code origin "refs/heads/esphome/$version" >/dev/null; then
+            echo "::notice::esphome/$version exists already"
+            echo "skip=true" >>"$GITHUB_OUTPUT"
+          fi
+      - name: Bump
+        id: bump
+        if: steps.pick.outputs.skip != 'true'
+        run: scripts/bump-esphome.sh "${{ steps.pick.outputs.version }}"
+      - name: Report waiting for nixpkgs
+        if: steps.bump.outputs.status == 'waiting'
+        run: echo "::notice::nixpkgs' ESPHome can't be moved to ${{ steps.pick.outputs.version }} yet"
+      - name: Check
+        id: check
+        if: steps.bump.outputs.status == 'bumped'
+        continue-on-error: true
+        run: nix flake check --print-build-logs
+      - name: Open the PR
+        if: steps.bump.outputs.status == 'bumped'
+        env:
+          VERSION: ${{ steps.pick.outputs.version }}
+          OVERRIDE: ${{ steps.bump.outputs.override }}
+          RELEASE_AS: ${{ steps.bump.outputs.release_as }}
+          CHECKED: ${{ steps.check.outcome }}
+        run: |
+          branch="esphome/$VERSION"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add -A
+          {
+            echo "feat: types for ESPHome $VERSION"
+            if [[ $OVERRIDE == true ]]; then
+              echo
+              echo "nixpkgs' ESPHome is overridden to $VERSION until nixpkgs has it."
+            fi
+            if [[ -n $RELEASE_AS ]]; then
+              echo
+              echo "Release-As: $RELEASE_AS"
+            fi
+          } >"$RUNNER_TEMP/message"
+          git commit -F "$RUNNER_TEMP/message"
+          git push origin "$branch"
+
+          {
+            echo "Moves the types to ESPHome $VERSION."
+            echo
+            if [[ $OVERRIDE == true ]]; then
+              echo "nixpkgs doesn't have it yet, so \`nix/esphome-src.json\` overrides its ESPHome's source."
+              echo "ESPHome's own test suite is skipped in the override; this repo's checks ran instead,"
+              echo "but the dev shell's \`esphome\` may lag its newest Python dependencies until nixpkgs catches up."
+              echo
+            fi
+            if [[ $CHECKED == success ]]; then
+              echo "\`nix flake check\` passed."
+            else
+              echo "\`nix flake check\` failed: see the [workflow run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
+            fi
+          } >"$RUNNER_TEMP/body"
+          draft=$([[ $CHECKED == success ]] || echo --draft)
+          gh pr create --head "$branch" --title "feat: types for ESPHome $VERSION" \
+            --body-file "$RUNNER_TEMP/body" $draft
+          # PRs opened with GITHUB_TOKEN do not trigger CI, but workflow_dispatch runs do
+          gh workflow run ci.yml --ref "$branch"

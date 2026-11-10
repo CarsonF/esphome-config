@@ -15,16 +15,8 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
       esphomeVersion = (nixpkgs.lib.importJSON ./package.json).esphome.version;
 
-      # nixpkgs' ESPHome, which must be the version the types are for
-      esphomeFor =
-        pkgs:
-        if pkgs.esphome.version == esphomeVersion then
-          pkgs.esphome
-        else
-          throw (
-            "esphome-config: nixpkgs has ESPHome ${pkgs.esphome.version}, "
-            + "but the types are for ${esphomeVersion}"
-          );
+      # nixpkgs' ESPHome at the version the types are for, overridden while nixpkgs is behind
+      esphomeFor = pkgs: pkgs.callPackage ./nix/esphome.nix { } esphomeVersion;
       schemaFor = pkgs: pkgs.callPackage ./nix/schema.nix { } esphomeVersion;
       mkExternalTypesFor =
         pkgs:
@@ -43,6 +35,7 @@
       packages = forAllSystems (pkgs: rec {
         esphome-config = pkgs.callPackage ./nix/package.nix { schema = schemaFor pkgs; };
         schema = schemaFor pkgs;
+        esphome = esphomeFor pkgs;
         default = esphome-config;
       });
 

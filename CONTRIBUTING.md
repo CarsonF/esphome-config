@@ -41,6 +41,19 @@ Merging it tags the release.
 The release workflow then attaches the package tarball, `esphome-config-<version>.tgz`,
 to the GitHub release.
 
+## ESPHome updates
+
+A scheduled workflow, or `scripts/bump-esphome.sh [<version>]` by hand, moves to a new ESPHome:
+package.json's `esphome.version`, the schema hash, `flake.lock` and the fixture's schema dump.
+While nixpkgs is behind, `nix/esphome-src.json` overrides its ESPHome's source to the new version,
+with ESPHome's own tests skipped; the next bump drops it once nixpkgs catches up.
+If the override doesn't build, the workflow waits for nixpkgs and opens nothing.
+
+The workflow runs `nix flake check` and opens a PR on `esphome/<version>`,
+a draft if a check failed.
+It never merges: review it, fix what the new schema broke on its branch, and merge.
+A new ESPHome month's commit carries `Release-As: <year>.<month>.0`; keep it when squash-merging.
+
 ## Nix
 
 Nix is optional.
