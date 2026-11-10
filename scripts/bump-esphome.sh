@@ -47,7 +47,8 @@ schema=$(got_hash .#schema)
 set_json nix/schema-hashes.json "{ \"$version\": \"$schema\" }"
 
 # the fixture's schema, as this ESPHome dumps it
-script="$(nix eval --raw .#esphome.src)/script/build_language_schema.py"
+# built, not just evaluated, so the source is on disk
+script="$(nix build .#esphome.src --no-link --print-out-paths)/script/build_language_schema.py"
 dump=$(mktemp -d)
 nix develop --command env PYTHONDONTWRITEBYTECODE=1 \
   python3 src/gen/dump-external.py "$script" test/external-fixture/components "$dump" >/dev/null
