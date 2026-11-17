@@ -127,9 +127,10 @@ export class Entity<Props extends object = Config> extends Construct {
   }
 
   /** Each call is its own automation on `trigger`, e.g. `on_value`. */
-  protected on(trigger: string, given: unknown): void {
+  protected on(trigger: string, given: unknown): this {
     markThunks(given);
     this.automations.set(trigger, [...(this.automations.get(trigger) ?? []), asAutomation(given)]);
+    return this;
   }
 }
 

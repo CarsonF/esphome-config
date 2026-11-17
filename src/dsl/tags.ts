@@ -11,6 +11,15 @@ export type Condition = Tagged | Config | CppFn<any, boolean>;
 export type Lambda<Ret = unknown> = Tagged | CppFn<any, Ret>;
 /** One item, or any nesting of arrays of them: a single step, varargs or a list. */
 export type Many<T> = T | readonly Many<T>[];
+/**
+ * A trigger's argument: the steps, or `{ then, ...options }` when it has options.
+ * Example: Trigger<Step, { above?: number }> is `[...]` or `{ above: 30, then: [...] }`
+ */
+export type Trigger<S, Options extends object = never> =
+  | Many<S>
+  | ([Options] extends [never] ? never : TriggerWith<S, Options>);
+/** A trigger that can't do without its options, e.g. `timing` of `on_multi_click`. */
+export type TriggerWith<S, Options extends object> = Omit<Options, 'then'> & { then: Many<S> };
 /** A field the schema doesn't type: any YAML. */
 export type Any = Value | Config | Any[];
 /**

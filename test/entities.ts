@@ -15,8 +15,8 @@ export const sensor = entityFactory(
       super(scope, id, SENSOR, props);
     }
 
-    on_value(automation: Many<Step>): void {
-      this.on('on_value', automation);
+    on_value(automation: Many<Step>): this {
+      return this.on('on_value', automation);
     }
   },
   'probe',
