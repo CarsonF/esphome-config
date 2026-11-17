@@ -482,8 +482,13 @@ const factoryCall = (cls: string, optionalProps: string, label: string, rule?: s
     : `entityFactory<${cls}.Props, ${cls}${rule ? `, ${rule}` : ''}>(${cls}, '${label}')`;
 
 /** What a constructor takes: the props, narrowed by the `rule` of which to give. */
-const propsType = (cls: string, rule?: string): string =>
-  rule ? `Constrain<${cls}.Props, ${rule}>` : `${cls}.Props`;
+const propsType = (cls: string, rule?: string): string => constrained(`${cls}.Props`, rule);
+
+const constrained = (props: string, rule?: string): string =>
+  rule ? `Constrain<${props}, ${rule}>` : props;
+
+const oneOfRule = (keys?: string[]): string | undefined =>
+  keys && `{ atLeast: ${keys.map(literal).join(' | ')} }`;
 
 const classNames = new Set<string>();
 
@@ -746,19 +751,21 @@ const TRIGGER_ARGS: Record<string, string> = {
 };
 
 /**
- * Options of which a trigger needs one, which ESPHome's schema doesn't say.
- * Example: `sensor.on_value_range` takes `above`, `below` or both.
+ * Options of which a trigger or condition needs one, which ESPHome's schema doesn't say.
+ * Example: `sensor.on_value_range` and `sensor.in_range` take `above`, `below` or both.
  */
-const TRIGGER_AT_LEAST_ONE: Record<string, string[]> = {
+const AT_LEAST_ONE: Record<string, string[]> = {
   'sensor.on_value_range': ['above', 'below'],
   'number.on_value_range': ['above', 'below'],
+  'sensor.in_range': ['above', 'below'],
+  'number.in_range': ['above', 'below'],
 };
 
 /** A trigger as a prop or an `on_x()` argument, e.g. `Trigger<{ above?: number }, [x: number]>`. */
 async function triggerType(key: string, v: Var, namespace: string): Promise<string> {
   const id = `${namespace}.${key}`;
   const options = v.schema ? await nestedSchema(v) : undefined;
-  const atLeastOne = TRIGGER_AT_LEAST_ONE[id];
+  const atLeastOne = AT_LEAST_ONE[id];
   const defaults = ['never', 'any', 'never'];
   const params = [
     options ?? 'never',
@@ -1150,8 +1157,10 @@ async function builder(component: string, name: string, spec: Json, leaf: string
     return `${head}(value: Time | Lambda<number>): ${ret} {\n    return { '${key}': value };\n  },\n`;
   const vars = await flatten(schema);
   const rest = Object.entries(vars).filter(([k, v]) => k !== 'id' && !v.id_type);
-  const propsType = typeOf(
-    await schemaParts(schema, { omit: new Set(['id']), skip: (key) => key === 'id' }),
+  const rule = oneOfRule(AT_LEAST_ONE[key]) ?? requiredOneOf(rest);
+  const propsType = constrained(
+    typeOf(await schemaParts(schema, { omit: new Set(['id']), skip: (key) => key === 'id' })),
+    rule,
   );
   const actions = Object.entries(vars)
     .filter(([k, v]) => isSteps(k, v) || v.type === 'trigger')
@@ -1167,14 +1176,14 @@ async function builder(component: string, name: string, spec: Json, leaf: string
     const idVar = vars.id;
     const idType = `Ref<${JSON.stringify(idVar.use_id_type)}>`;
     const optionalId = idVar.key === 'Required' ? '' : '?';
-    const propsOptional = hasRequired(rest) ? '' : '?';
+    const propsOptional = rule || hasRequired(rest) ? '' : '?';
     return `${head}(id${optionalId}: ${idType}, props${propsOptional}: ${propsType}): ${ret} {
     return { '${key}': props && Object.keys(props).length || ${spec.maybe !== 'id'} ? { id, ...${wrap('props')} } : (id ?? null) };
   },
 `;
   }
-  const propsOptional = hasRequired(Object.entries(vars)) ? '' : '?';
-  const full = typeOf(await schemaParts(schema));
+  const propsOptional = rule || hasRequired(Object.entries(vars)) ? '' : '?';
+  const full = constrained(typeOf(await schemaParts(schema)), rule);
   return `${head}(props${propsOptional}: ${full}): ${ret} {
     return { '${key}': ${wrap('props')} ?? null };
   },

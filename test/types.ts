@@ -38,3 +38,14 @@ export function oneOf(): void {
   // @ts-expect-error one of them is needed
   esp.sensor.ble_rssi({});
 }
+
+/** Type-checked; never run. */
+export function inRange(): void {
+  const temp = esp.sensor.adc({ pin: 'GPIO34' });
+  temp.in_range({ above: 30 });
+  temp.in_range({ above: 20, below: 30 });
+  // @ts-expect-error `above` or `below` is needed
+  temp.in_range();
+  // @ts-expect-error `above` or `below` is needed
+  temp.in_range({});
+}
