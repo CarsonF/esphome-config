@@ -23,3 +23,18 @@ export function triggerOptions(): void {
   // @ts-expect-error an option the schema doesn't have
   button.on_multi_click({ timing: 'ON for at most 1s', then: [], invalid_cooldwn: '1s' });
 }
+
+/** Type-checked; never run. */
+export function oneOf(): void {
+  const temp = esp.sensor.adc({ pin: 'GPIO34' });
+  temp.on_value_range({ above: 30, then: [] });
+  temp.on_value_range({ above: 30, below: 40, then: [] });
+  // @ts-expect-error `above` or `below` is needed
+  temp.on_value_range({ then: [] });
+
+  esp.sensor.ble_rssi({ mac_address: 'AA:BB:CC:DD:EE:FF' });
+  // @ts-expect-error exactly one of `mac_address` and `irk`
+  esp.sensor.ble_rssi({ mac_address: 'AA:BB:CC:DD:EE:FF', irk: 'x' });
+  // @ts-expect-error one of them is needed
+  esp.sensor.ble_rssi({});
+}

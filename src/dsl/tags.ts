@@ -1,3 +1,4 @@
+import type { RequireAtLeastOne, RequireExactlyOne } from 'type-fest';
 import type { CppFn } from './cpp.ts';
 
 export type Config = Record<string, unknown>;
@@ -21,20 +22,44 @@ export type Many<T> = T | readonly Many<T>[];
  * `Args` are what it hands a `cpp()` function, e.g. `[x: number]`.
  * Example: Trigger<{ above?: number }> is `[...]` or `{ above: 30, then: [...] }`
  */
-export type Trigger<Options extends object = never, Args extends unknown[] = any> =
+export type Trigger<
+  Options extends object = never,
+  Args extends unknown[] = any,
+  AtLeastOne extends keyof Options = never,
+> =
   | Many<TriggerAction<Args>>
-  | ([Options] extends [never] ? never : TriggerWith<Options, Args>);
-/** A trigger that can't do without its options, e.g. `timing` of `on_multi_click`. */
-export type TriggerWith<Options extends object, Args extends unknown[] = any> = Omit<
-  Options,
-  'then'
-> & { then: Many<TriggerAction<Args>> };
+  | ([Options] extends [never] ? never : TriggerWith<Options, Args, AtLeastOne>);
+/**
+ * A trigger that can't do without its options, e.g. `timing` of `on_multi_click`.
+ * `AtLeastOne` are options of which one has to be given, e.g. `above` and `below`.
+ */
+export type TriggerWith<
+  Options extends object,
+  Args extends unknown[] = any,
+  AtLeastOne extends keyof Options = never,
+> = ([AtLeastOne] extends [never]
+  ? Omit<Options, 'then'>
+  : RequireAtLeastOne<Omit<Options, 'then'>, Extract<AtLeastOne, keyof Omit<Options, 'then'>>>) & {
+  then: Many<TriggerAction<Args>>;
+};
 /** An action of a trigger, where a `cpp()` function takes `Args` if they're known. */
 export type TriggerAction<Args extends unknown[] = any> =
   | Config
   | Tagged
   | CppFn<Args, unknown>
   | LazyAction;
+/** Props of which some must be given, e.g. `{ atLeast: 'heat_output' | 'cool_output' }`. */
+export type OneOfRule = { atLeast: PropertyKey } | { exactly: PropertyKey };
+/**
+ * `Props` where the `Rule` holds: `{ atLeast: K }` needs one or more of `K`, `{ exactly: K }` one.
+ */
+export type Constrain<Props extends object, Rule extends OneOfRule = never> = [Rule] extends [never]
+  ? Props
+  : Rule extends { atLeast: infer K extends keyof Props }
+    ? RequireAtLeastOne<Props, K>
+    : Rule extends { exactly: infer K extends keyof Props }
+      ? RequireExactlyOne<Props, K>
+      : Props;
 /** A field the schema doesn't type: any YAML. */
 export type Any = Value | Config | Any[];
 /**

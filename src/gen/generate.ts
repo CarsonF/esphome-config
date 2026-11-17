@@ -419,7 +419,7 @@ function platformClass(domain: string, spec: string): Promise<Made | ''> {
     actionNamespace: domain,
     kind: () => `{ domain: '${domain}', platform: '${platform}' }`,
     doc: `\`${domain}: - platform: ${platform}\``,
-    factory: (name, opt) => factoryCall(name, opt, `${platform}_${domain}`),
+    factory: (name, opt, _shape, rule) => factoryCall(name, opt, `${platform}_${domain}`, rule),
   });
 }
 
@@ -432,12 +432,34 @@ function componentClass(name: string): Promise<Made | ''> {
     actionNamespace: name,
     kind: (shape) => `{ domain: '${name}'${shape === 'list' ? '' : `, shape: '${shape}'`} }`,
     doc: `\`${name}:\``,
-    factory: (cls, opt, shape) =>
+    factory: (cls, opt, shape, rule) =>
       shape === 'single'
-        ? `(props: ${cls}.Props${opt}): ${cls} => new ${cls}(currentScope(), '${name}', props)`
-        : factoryCall(cls, opt, name),
+        ? `(props: ${propsType(cls, rule)}${opt}): ${cls} => new ${cls}(currentScope(), '${name}', props)`
+        : factoryCall(cls, opt, name, rule),
   });
 }
+
+/**
+ * The props whose docs say to give some of them, as a `Constrain` rule.
+ * Example: "At least one of `heat_output` and `cool_output` must be specified" is
+ * `{ atLeast: "heat_output" | "cool_output" }`
+ */
+function requiredOneOf(own: [string, Var][]): string | undefined {
+  const names = new Set(own.map(([key]) => key));
+  for (const [, v] of own) {
+    const found = v.docs?.match(ONE_OF);
+    const keys = [...(found?.[2].matchAll(/`(\w+)`/g) ?? [])]
+      .map((m) => m[1])
+      .filter((key) => names.has(key));
+    if (found && keys.length > 1) {
+      const how = found[1].toLowerCase() === 'exactly' ? 'exactly' : 'atLeast';
+      return `{ ${how}: ${keys.map(literal).join(' | ')} }`;
+    }
+  }
+}
+
+const ONE_OF =
+  /\b(at least|exactly) one of ((?:`\w+`[\s,]*(?:and|or)?[\s,]*)+)(?:must|need|is required)/i;
 
 interface EntitySpec {
   name: string;
@@ -450,14 +472,18 @@ interface EntitySpec {
   kind: (shape: Shape) => string;
   doc: string;
   /** The expression for a function that builds the class in the current scope. */
-  factory: (cls: string, optionalProps: string, shape: Shape) => string;
+  factory: (cls: string, optionalProps: string, shape: Shape, rule?: string) => string;
 }
 
 /** The overloaded builder for a class: with an optional id when it has no required props. */
-const factoryCall = (cls: string, optionalProps: string, label: string): string =>
+const factoryCall = (cls: string, optionalProps: string, label: string, rule?: string): string =>
   optionalProps
     ? `optionalEntityFactory<${cls}.Props, ${cls}>(${cls}, '${label}')`
-    : `entityFactory<${cls}.Props, ${cls}>(${cls}, '${label}')`;
+    : `entityFactory<${cls}.Props, ${cls}${rule ? `, ${rule}` : ''}>(${cls}, '${label}')`;
+
+/** What a constructor takes: the props, narrowed by the `rule` of which to give. */
+const propsType = (cls: string, rule?: string): string =>
+  rule ? `Constrain<${cls}.Props, ${rule}>` : `${cls}.Props`;
 
 const classNames = new Set<string>();
 
@@ -524,6 +550,7 @@ async function entityClass(spec: EntitySpec): Promise<Made | ''> {
   const optionalKey = /default/i.test(config.docs ?? '') ? '?' : '';
   const extend = ({ parents }: Parts): string =>
     parents.length ? ` extends ${parents.join(', ')}` : '';
+  const rule = typedKey ? undefined : requiredOneOf(own);
   const members = typedKey
     ? variants
         .map(({ name }, i) => {
@@ -533,7 +560,9 @@ async function entityClass(spec: EntitySpec): Promise<Made | ''> {
       `\ntype Props =\n${variants.map(({ name }) => `  | ${variantName(name)}`).join('\n')};\n`
     : `interface Props${extend(bodies[0])} {\n${idProp}${bodies[0].own}${triggerProps[0]}}\n`;
   const required =
-    variants.some(({ vars }) => hasRequired(ownOf(vars))) || (!!typedKey && !optionalKey);
+    !!rule ||
+    variants.some(({ vars }) => hasRequired(ownOf(vars))) ||
+    (!!typedKey && !optionalKey);
   const triggers = (
     await Promise.all(
       own
@@ -542,13 +571,13 @@ async function entityClass(spec: EntitySpec): Promise<Made | ''> {
     )
   ).join('');
   const methods = await entityMethods(spec.actionNamespace, cpp as string[]);
-  const expr = spec.factory(spec.name, required ? '' : ' = {}', shape);
+  const expr = spec.factory(spec.name, required ? '' : ' = {}', shape, rule);
   const code = `
 /** ${spec.doc} */
 export class ${spec.name} extends Entity<${spec.name}.Props> {
   declare readonly cpp: Cpp<${cpp.map((c) => JSON.stringify(c)).join(' | ') || 'never'}>;
 
-  constructor(scope: Construct, id: string, props: ${spec.name}.Props${required ? '' : ' = {}'}) {
+  constructor(scope: Construct, id: string, props: ${propsType(spec.name, rule)}${required ? '' : ' = {}'}) {
     super(scope, id, ${kind}, props);
   }
 ${triggers}${methods}}
@@ -716,13 +745,29 @@ const TRIGGER_ARGS: Record<string, string> = {
   'text_sensor.on_raw_value': '[x: string]',
 };
 
+/**
+ * Options of which a trigger needs one, which ESPHome's schema doesn't say.
+ * Example: `sensor.on_value_range` takes `above`, `below` or both.
+ */
+const TRIGGER_AT_LEAST_ONE: Record<string, string[]> = {
+  'sensor.on_value_range': ['above', 'below'],
+  'number.on_value_range': ['above', 'below'],
+};
+
 /** A trigger as a prop or an `on_x()` argument, e.g. `Trigger<{ above?: number }, [x: number]>`. */
 async function triggerType(key: string, v: Var, namespace: string): Promise<string> {
-  const args = TRIGGER_ARGS[`${namespace}.${key}`];
+  const id = `${namespace}.${key}`;
   const options = v.schema ? await nestedSchema(v) : undefined;
-  const params = [options ?? (args && 'never'), args].filter(Boolean).join(', ');
+  const atLeastOne = TRIGGER_AT_LEAST_ONE[id];
+  const defaults = ['never', 'any', 'never'];
+  const params = [
+    options ?? 'never',
+    TRIGGER_ARGS[id] ?? 'any',
+    atLeastOne?.map(literal).join(' | ') ?? 'never',
+  ];
+  while (params.length && params.at(-1) === defaults[params.length - 1]) params.pop();
   const name = options && v.has_required_var ? 'TriggerWith' : 'Trigger';
-  return params ? `${name}<${params}>` : name;
+  return params.length ? `${name}<${params.join(', ')}>` : name;
 }
 
 async function triggerPropLines(vars: Record<string, Var>, namespace: string): Promise<string> {
@@ -1146,7 +1191,7 @@ function write(name: string, body: string, depth = 0): void {
   const dsl = EXTERNAL_MODE ? 'esphome-config' : `${'../'.repeat(depth + 1)}dsl/index.ts`;
   const header = `// Generated by esphome-config from the ESPHome ${VERSION} schema; do not edit.
 import { Entity, currentScope, entityFactory, flat, optionalEntityFactory, toCondition, withActions, type Construct, type Cpp, type CppFn, type InternalPin, type Pin, type Ref } from '${dsl}';
-import type { Action, Any, AnyAction, Condition, Config, Frequency, Lambda, Many, Percent, Tagged, Tail, Thunk, Time, Trigger, TriggerWith, Value } from '${dsl}';
+import type { Action, Any, AnyAction, Condition, Config, Constrain, Frequency, Lambda, Many, Percent, Tagged, Tail, Thunk, Time, Trigger, TriggerWith, Value } from '${dsl}';
 import type * as S from '${depth ? '../'.repeat(depth) : './'}schemas.ts';
 import type * as M from '${EXTERNAL_MODE ? 'esphome-config/generated/members' : `${depth ? '../'.repeat(depth) : './'}members.ts`}';
 ${name.startsWith('actions/') ? '' : actionImports(depth)}`;
@@ -1209,6 +1254,8 @@ const pascal = (name: string): string =>
   name.replace(/(^|_)(\w)/g, (_, __, c: string) => c.toUpperCase());
 const camel = (name: string): string =>
   name.replace(/[_-](\w)/g, (_, c: string) => c.toUpperCase());
+const literal = (key: string): string => JSON.stringify(key);
+
 const propName = (key: string): string => (/^[A-Za-z_]\w*$/.test(key) ? key : JSON.stringify(key));
 
 /** First paragraph with links flattened, and any comment terminator defused. */
