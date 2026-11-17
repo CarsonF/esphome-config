@@ -5,10 +5,8 @@ export type Action = Tagged | Config | CppFn<any, unknown>;
 /** An action as given: an `Action`, or a function building actions when the YAML renders. */
 export type AnyAction = Action | LazyAction;
 export type LazyAction = Thunk<Many<AnyAction>>;
-/**
- * A function that builds `T` later.
- * An interface rather than a function type, so `AnyAction` can refer to itself through it.
- */
+/** A function that builds `T` later. */
+// an interface, so a recursive type can include it
 export interface Thunk<T> {
   (): T;
 }
@@ -16,7 +14,7 @@ export interface Thunk<T> {
 export type Condition = Tagged | Config | CppFn<any, boolean>;
 /** A computed value: a `!lambda`, or a `cpp()` function returning what the field takes. */
 export type Lambda<Ret = unknown> = Tagged | CppFn<any, Ret>;
-/** One item, or any nesting of arrays of them: a single action, varargs or a list. */
+/** One item, or any nesting of arrays of them. */
 export type Many<T> = T | readonly Many<T>[];
 /**
  * A trigger's argument: the actions, or `{ then, ...options }` when it has options.
