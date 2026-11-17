@@ -59,7 +59,7 @@ test('ids that collide across scopes are rejected', () => {
   assert.throws(() => clash.toYaml(), /two entities have the id "a_b"/);
 });
 
-test('secretNames lists the secrets in blocks, props and step functions', () => {
+test('secretNames lists the secrets in blocks, props and lazy actions', () => {
   const root = device('d', () => {
     wifi({ ssid: secret('wifi_ssid') });
     script({ id: 's', then: () => ({ 'wifi.connect': { password: secret('pw') } }) });
@@ -68,7 +68,7 @@ test('secretNames lists the secrets in blocks, props and step functions', () => 
   assert.deepEqual(root.secretNames().sort(), ['ota', 'pw', 'wifi_ssid']);
 });
 
-test('step functions run once, at render, and can name entities made after them', () => {
+test('lazy actions run once, at render, and can name entities made after them', () => {
   let runs = 0;
   const root = device('d', () => {
     script({

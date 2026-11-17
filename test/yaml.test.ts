@@ -37,7 +37,7 @@ test('a list of numbers is one flow sequence', () => {
   assert.equal(toYaml({ code: [100, -200, 300] }), 'code: [ 100, -200, 300 ]\n');
 });
 
-test('a lambda directly in a list is a lambda step', () => {
+test('a lambda directly in a list is a lambda action', () => {
   assert.equal(toYaml({ then: [lambda`f();`] }), 'then:\n  - lambda: !lambda f();\n');
 });
 

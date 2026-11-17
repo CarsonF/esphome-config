@@ -2,12 +2,12 @@ import type { CppFn } from './cpp.ts';
 
 export type Config = Record<string, unknown>;
 export type Action = Tagged | Config | CppFn<any, unknown>;
-/** A step as given: an `Action`, or a function building steps when the YAML renders. */
-export type Step = Action | LazyStep;
-export type LazyStep = Thunk<Many<Step>>;
+/** An action as given: an `Action`, or a function building actions when the YAML renders. */
+export type AnyAction = Action | LazyAction;
+export type LazyAction = Thunk<Many<AnyAction>>;
 /**
  * A function that builds `T` later.
- * An interface rather than a function type, so `Step` can refer to itself through it.
+ * An interface rather than a function type, so `AnyAction` can refer to itself through it.
  */
 export interface Thunk<T> {
   (): T;
@@ -16,27 +16,27 @@ export interface Thunk<T> {
 export type Condition = Tagged | Config | CppFn<any, boolean>;
 /** A computed value: a `!lambda`, or a `cpp()` function returning what the field takes. */
 export type Lambda<Ret = unknown> = Tagged | CppFn<any, Ret>;
-/** One item, or any nesting of arrays of them: a single step, varargs or a list. */
+/** One item, or any nesting of arrays of them: a single action, varargs or a list. */
 export type Many<T> = T | readonly Many<T>[];
 /**
- * A trigger's argument: the steps, or `{ then, ...options }` when it has options.
+ * A trigger's argument: the actions, or `{ then, ...options }` when it has options.
  * `Args` are what it hands a `cpp()` function, e.g. `[x: number]`.
  * Example: Trigger<{ above?: number }> is `[...]` or `{ above: 30, then: [...] }`
  */
 export type Trigger<Options extends object = never, Args extends unknown[] = any> =
-  | Many<TriggerStep<Args>>
+  | Many<TriggerAction<Args>>
   | ([Options] extends [never] ? never : TriggerWith<Options, Args>);
 /** A trigger that can't do without its options, e.g. `timing` of `on_multi_click`. */
 export type TriggerWith<Options extends object, Args extends unknown[] = any> = Omit<
   Options,
   'then'
-> & { then: Many<TriggerStep<Args>> };
-/** A step of a trigger, where a `cpp()` function takes `Args` if they're known. */
-export type TriggerStep<Args extends unknown[] = any> =
+> & { then: Many<TriggerAction<Args>> };
+/** An action of a trigger, where a `cpp()` function takes `Args` if they're known. */
+export type TriggerAction<Args extends unknown[] = any> =
   | Config
   | Tagged
   | CppFn<Args, unknown>
-  | LazyStep;
+  | LazyAction;
 /** A field the schema doesn't type: any YAML. */
 export type Any = Value | Config | Any[];
 /**
@@ -110,15 +110,17 @@ export function flat<T>(items: readonly Many<T>[]): T[] {
 export const toCondition = (condition: Condition): Config =>
   condition instanceof Tagged ? { lambda: condition } : (condition as Config);
 
-/** Props with the `steps` keys flattened to lists, and the `conditions` keys as conditions. */
-export function withSteps<P extends object | undefined>(
+/** Props with the `actions` keys flattened to lists, and the `conditions` keys as conditions. */
+export function withActions<P extends object | undefined>(
   props: P,
-  steps: readonly string[],
+  actions: readonly string[],
   conditions: readonly string[] = [],
 ): P {
   if (!props) return props;
   const out: Record<string, unknown> = { ...props };
-  for (const key of steps) if (out[key] !== undefined) out[key] = flat([out[key] as Many<Step>]);
+  for (const key of actions) {
+    if (out[key] !== undefined) out[key] = flat([out[key] as Many<AnyAction>]);
+  }
   for (const key of conditions) {
     if (out[key] !== undefined) out[key] = toCondition(out[key] as Condition);
   }

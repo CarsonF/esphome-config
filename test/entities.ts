@@ -1,10 +1,10 @@
 import {
   Entity,
   entityFactory,
+  type AnyAction,
   type Config,
   type Kind,
   type Many,
-  type Step,
 } from '../src/index.ts';
 
 /** Stand-ins for generated classes, with the kinds the generator gives them. */
@@ -15,7 +15,7 @@ export const sensor = entityFactory(
       super(scope, id, SENSOR, props);
     }
 
-    on_value(automation: Many<Step>): this {
+    on_value(automation: Many<AnyAction>): this {
       return this.on('on_value', automation);
     }
   },
@@ -27,7 +27,7 @@ export const wifi = entityFactory(kindClass({ domain: 'wifi', shape: 'single' })
 export const i2c = entityFactory(kindClass({ domain: 'i2c', shape: 'listable' }), 'i2c');
 
 export const script = entityFactory(
-  kindClass({ domain: 'script', id: 'always', steps: ['then'] }),
+  kindClass({ domain: 'script', id: 'always', actions: ['then'] }),
   'script',
 );
 
@@ -35,7 +35,7 @@ const SENSOR: Kind = {
   domain: 'sensor',
   platform: 'adc',
   triggers: ['on_value'],
-  steps: ['filters'],
+  actions: ['filters'],
   id: 'unlessNamed',
 };
 

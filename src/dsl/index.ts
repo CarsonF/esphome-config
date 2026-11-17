@@ -12,24 +12,24 @@ export type { CppFn } from './cpp.ts';
 export { device } from './device.ts';
 export { Global } from './global.ts';
 export { construct, currentScope, entityFactory, inScope, optionalEntityFactory } from './scope.ts';
-export { flat, lambda, plain, secret, Tagged, toCondition, withSteps } from './tags.ts';
+export { flat, lambda, plain, secret, Tagged, toCondition, withActions } from './tags.ts';
 export type { Cpp, InternalPin, Kind, Pin, PinOptions, Ref, Tail } from './construct.ts';
 export type { EntityFactory, OptionalEntityFactory } from './scope.ts';
 export type {
   Action,
   Any,
+  AnyAction,
   Condition,
   Config,
   Frequency,
   Lambda,
-  LazyStep,
+  LazyAction,
   Many,
   Percent,
-  Step,
   Thunk,
   Time,
   Trigger,
-  TriggerStep,
+  TriggerAction,
   TriggerWith,
   Value,
 } from './tags.ts';

@@ -18,7 +18,7 @@ export function triggerOptions(): void {
   button.on_multi_click({ timing: 'ON for at most 1s', then: [] });
   // @ts-expect-error `timing` is required
   button.on_multi_click({ then: [] });
-  // @ts-expect-error a bare list of steps has no `timing`
+  // @ts-expect-error a bare list of actions has no `timing`
   button.on_multi_click([]);
   // @ts-expect-error an option the schema doesn't have
   button.on_multi_click({ timing: 'ON for at most 1s', then: [], invalid_cooldwn: '1s' });

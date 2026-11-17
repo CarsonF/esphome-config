@@ -1,7 +1,7 @@
 import { ESP_LOGD } from '../../src/cpp.ts';
 import { esp } from '../../src/index.ts';
 
-/** Steps given as functions, and triggers given as props. */
+/** Actions given as functions, and triggers given as props. */
 export default esp.device('thunks', () => {
   esp.esp32({ board: 'esp32dev', framework: { type: 'esp-idf' } });
   esp.logger();
@@ -50,11 +50,11 @@ export function typeChecks(): void {
   sw.turn_on_action((x: number) => sw.turn_off());
   // @ts-expect-error a thunk of a thunk of numbers
   sw.turn_on_action(() => () => 3);
-  // @ts-expect-error `then` takes steps, not a number
+  // @ts-expect-error `then` takes actions, not a number
   esp.script({ id: 'y', then: [() => 'x'] });
-  // @ts-expect-error a trigger prop takes steps
+  // @ts-expect-error a trigger prop takes actions
   esp.switch.template({ id: 'z', name: 'Z', turn_on_action: 3 });
-  // @ts-expect-error `on_value_range` needs its options, so the bare steps are not enough
+  // @ts-expect-error `on_value_range` needs its options, so the bare actions are not enough
   esp.sensor.adc({ id: 'a', pin: 'GPIO34', on_value_range: esp.actions.delay('1s') });
   // @ts-expect-error a bad option
   esp.sensor.adc({ id: 'b', pin: 'GPIO34', on_value_range: { above: true, then: [] } });
