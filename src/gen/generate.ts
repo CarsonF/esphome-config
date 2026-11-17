@@ -716,18 +716,13 @@ const TRIGGER_ARGS: Record<string, string> = {
   'text_sensor.on_raw_value': '[x: string]',
 };
 
-/** What a trigger's steps are: with typed arguments a `cpp()` function can take them. */
-const triggerStep = (key: string, namespace: string): string => {
-  const args = TRIGGER_ARGS[`${namespace}.${key}`];
-  return args ? `Config | Tagged | CppFn<${args}, unknown> | Thunk` : 'Step';
-};
-
-/** A trigger as a prop or an `on_x()` argument, e.g. `Trigger<Step, { above?: number }>`. */
+/** A trigger as a prop or an `on_x()` argument, e.g. `Trigger<{ above?: number }, [x: number]>`. */
 async function triggerType(key: string, v: Var, namespace: string): Promise<string> {
-  const steps = triggerStep(key, namespace);
+  const args = TRIGGER_ARGS[`${namespace}.${key}`];
   const options = v.schema ? await nestedSchema(v) : undefined;
-  if (!options) return `Trigger<${steps}>`;
-  return `${v.has_required_var ? 'TriggerWith' : 'Trigger'}<${steps}, ${options}>`;
+  const params = [options ?? (args && 'never'), args].filter(Boolean).join(', ');
+  const name = options && v.has_required_var ? 'TriggerWith' : 'Trigger';
+  return params ? `${name}<${params}>` : name;
 }
 
 async function triggerPropLines(vars: Record<string, Var>, namespace: string): Promise<string> {

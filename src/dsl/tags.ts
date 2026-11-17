@@ -13,13 +13,23 @@ export type Lambda<Ret = unknown> = Tagged | CppFn<any, Ret>;
 export type Many<T> = T | readonly Many<T>[];
 /**
  * A trigger's argument: the steps, or `{ then, ...options }` when it has options.
- * Example: Trigger<Step, { above?: number }> is `[...]` or `{ above: 30, then: [...] }`
+ * `Args` are what it hands a `cpp()` function, e.g. `[x: number]`.
+ * Example: Trigger<{ above?: number }> is `[...]` or `{ above: 30, then: [...] }`
  */
-export type Trigger<S, Options extends object = never> =
-  | Many<S>
-  | ([Options] extends [never] ? never : TriggerWith<S, Options>);
+export type Trigger<Options extends object = never, Args extends unknown[] = any> =
+  | Many<TriggerStep<Args>>
+  | ([Options] extends [never] ? never : TriggerWith<Options, Args>);
 /** A trigger that can't do without its options, e.g. `timing` of `on_multi_click`. */
-export type TriggerWith<S, Options extends object> = Omit<Options, 'then'> & { then: Many<S> };
+export type TriggerWith<Options extends object, Args extends unknown[] = any> = Omit<
+  Options,
+  'then'
+> & { then: Many<TriggerStep<Args>> };
+/** A step of a trigger, where a `cpp()` function takes `Args` if they're known. */
+export type TriggerStep<Args extends unknown[] = any> =
+  | Config
+  | Tagged
+  | CppFn<Args, unknown>
+  | Thunk;
 /** A field the schema doesn't type: any YAML. */
 export type Any = Value | Config | Any[];
 /**

@@ -28,6 +28,7 @@ export type {
   Thunk,
   Time,
   Trigger,
+  TriggerStep,
   TriggerWith,
   Value,
 } from './tags.ts';
