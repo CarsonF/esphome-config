@@ -3,9 +3,10 @@ import type { CppFn } from './cpp.ts';
 export type Config = Record<string, unknown>;
 export type Action = Tagged | Config | CppFn<any, unknown>;
 /** A step as given: an `Action`, or a function building steps when the YAML renders. */
-export type Step = Action | Thunk<Many<Step>>;
+export type Step = Action | LazyStep;
+export type LazyStep = Thunk<Many<Step>>;
 /**
- * A function that builds `T` later, e.g. when the YAML renders.
+ * A function that builds `T` later.
  * An interface rather than a function type, so `Step` can refer to itself through it.
  */
 export interface Thunk<T> {
@@ -35,7 +36,7 @@ export type TriggerStep<Args extends unknown[] = any> =
   | Config
   | Tagged
   | CppFn<Args, unknown>
-  | Thunk<Many<Step>>;
+  | LazyStep;
 /** A field the schema doesn't type: any YAML. */
 export type Any = Value | Config | Any[];
 /**

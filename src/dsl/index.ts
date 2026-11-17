@@ -22,6 +22,7 @@ export type {
   Config,
   Frequency,
   Lambda,
+  LazyStep,
   Many,
   Percent,
   Step,
