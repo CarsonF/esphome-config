@@ -1,6 +1,5 @@
 export { Root } from './root.ts';
 export {
-  Automation,
   Construct,
   Contribution,
   Entity,

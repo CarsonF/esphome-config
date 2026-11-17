@@ -36,7 +36,7 @@ export default esp.device('thunks', () => {
     }),
   });
   temp.on_value(esp.actions.delay('2s'));
-  temp.on_value_range(esp.actions.delay('3s')).with({ below: 5 });
+  temp.on_value_range({ below: 5, then: esp.actions.delay('3s') });
 });
 
 /** Rejected by the type checker; never run. */

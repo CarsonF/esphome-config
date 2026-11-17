@@ -24,11 +24,11 @@ export default esp.device('demo-fan', () => {
   const cooler = pwmFan({ name: 'Cooler', pin: 'GPIO5' });
 
   const temp = esp.sensor.adc({ name: 'Temperature', pin: 'GPIO34', update_interval: '10s' });
-  temp.on_value(
+  temp.on_value([
     tooHot.assign('x > 30.0'),
     cooler.turn_on(),
     log.info('fan', 'too hot: %d', tooHot),
-  );
+  ]);
 });
 ```
 
@@ -77,8 +77,8 @@ A device is `devices/<name>.ts` or `devices/<name>/index.ts`, and its default ex
   `esp.sensor.adc(...)`, `esp.wifi(...)`.
 - An entity's actions and conditions are its methods: `cooler.turn_on()`, `sw.is_on()`.
   Other steps are under `esp.actions` and `esp.conditions`.
-- Triggers are methods (`temp.on_value(...)`) or props (`on_value: [...]`);
-  a trigger with options takes `{ then, ...options }`.
+- Triggers are methods (`temp.on_value([...])`) or props (`on_value: [...]`);
+  both take the steps, or `{ then, ...options }` for a trigger with options.
 - `` esp.lambda`...` `` writes a `!lambda`, where an interpolated entity becomes `id(<its id>)`.
 - A step can be a function returning steps, which runs when the YAML renders:
   use it to name an entity created further down.

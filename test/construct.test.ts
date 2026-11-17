@@ -48,8 +48,8 @@ test('entities need a device, and not a running step function', () => {
 test('a trigger prop and on_x() calls are one list of automations', () => {
   const yaml = device('d', () => {
     const temp = sensor({ id: 'temp', on_value: { then: { log: 1 }, above: 3 } });
-    temp.on_value({ log: 2 }).then({ log: 3 });
-    temp.on_value([{ log: 4 }]).with({ below: 5 });
+    temp.on_value([{ log: 2 }, { log: 3 }]);
+    temp.on_value({ then: [{ log: 4 }], below: 5 });
   }).toYaml();
   assert.deepEqual(parse(yaml).sensor[0].on_value, [
     { above: 3, then: [{ log: 1 }] },

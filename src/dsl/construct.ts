@@ -82,7 +82,7 @@ export interface Kind {
 export class Entity<Props extends object = Config> extends Construct {
   readonly kind: Kind;
   readonly props: Props;
-  private readonly automations = new Map<string, Automation[]>();
+  private readonly automations = new Map<string, Config[]>();
 
   constructor(scope: Construct, id: string, kind: Kind, props: Props) {
     super(scope, id);
@@ -96,15 +96,14 @@ export class Entity<Props extends object = Config> extends Construct {
     const { platform, shape, steps = [], triggers = [] } = this.kind;
     const rest = { ...withSteps(this.props, steps) } as Config;
     // a trigger given as a prop and through `on_x()` is one list of automations
-    const fromProps = new Map<string, Config[]>();
+    const merged = new Map<string, Config[]>();
     for (const key of Object.keys(rest).filter((name) => triggers.includes(name))) {
       const given = rest[key];
       delete rest[key];
-      if (given !== undefined) fromProps.set(key, [asAutomation(given)]);
+      if (given !== undefined) merged.set(key, [asAutomation(given)]);
     }
-    const merged = new Map(fromProps);
     for (const [trigger, list] of this.automations) {
-      merged.set(trigger, [...(merged.get(trigger) ?? []), ...list.map((a) => a.toConfig())]);
+      merged.set(trigger, [...(merged.get(trigger) ?? []), ...list]);
     }
     const automations = Object.fromEntries(
       [...merged].map(([trigger, list]) => [trigger, list.length === 1 ? list[0] : list]),
@@ -128,10 +127,9 @@ export class Entity<Props extends object = Config> extends Construct {
   }
 
   /** Each call is its own automation on `trigger`, e.g. `on_value`. */
-  protected on(trigger: string, actions: Many<Step>[]): Automation {
-    const automation = new Automation(actions);
-    this.automations.set(trigger, [...(this.automations.get(trigger) ?? []), automation]);
-    return automation;
+  protected on(trigger: string, given: unknown): void {
+    markThunks(given);
+    this.automations.set(trigger, [...(this.automations.get(trigger) ?? []), asAutomation(given)]);
   }
 }
 
@@ -140,34 +138,6 @@ function asAutomation(given: unknown): Config {
   return isPlainObject(given) && 'then' in given
     ? { ...given, then: flat([given.then as Many<Step>]) }
     : { then: flat([given as Many<Step>]) };
-}
-
-/** What an `on_x()` returns, to add steps or options to later. */
-export class Automation {
-  private options: Config = {};
-  private readonly actions: Step[];
-
-  constructor(actions: Many<Step>[]) {
-    markThunks(actions);
-    this.actions = flat(actions);
-  }
-
-  /** Appends steps, which run after the ones already here. */
-  then(...actions: Many<Step>[]): this {
-    markThunks(actions);
-    this.actions.push(...flat(actions));
-    return this;
-  }
-
-  /** Settings beside the steps, e.g. `above` for `on_value_range`. */
-  with(options: Config): this {
-    Object.assign(this.options, options);
-    return this;
-  }
-
-  toConfig(): Config {
-    return { ...this.options, then: this.actions };
-  }
 }
 
 /** A construct that adds to a block owned elsewhere, e.g. an `api` action. */

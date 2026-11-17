@@ -1,7 +1,6 @@
 import {
   Entity,
   entityFactory,
-  type Automation,
   type Config,
   type Kind,
   type Many,
@@ -16,8 +15,8 @@ export const sensor = entityFactory(
       super(scope, id, SENSOR, props);
     }
 
-    on_value(...actions: Many<Step>[]): Automation {
-      return this.on('on_value', actions);
+    on_value(automation: Many<Step>): void {
+      this.on('on_value', automation);
     }
   },
   'probe',
