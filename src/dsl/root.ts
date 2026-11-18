@@ -27,9 +27,9 @@ export class Root extends Construct {
 
   /** `localExternals` maps an `external_components` source to a directory, to validate offline. */
   toYaml(options: { localExternals?: Record<string, string> } = {}): string {
-    this.checkIds();
     // the first pass prints every id to find what is referenced; the second prints only those
     const referenced = collectRefs(this.build());
+    this.checkIds(referenced);
     return toYaml(withLocalSources(this.build(referenced), options.localExternals));
   }
 
@@ -73,10 +73,12 @@ export class Root extends Construct {
   }
 
   /** ESPHome ids are global, and `a_b` under `a` collides with `b` under `a_b`. */
-  private checkIds(): void {
+  private checkIds(referenced: ReadonlySet<unknown>): void {
     const seen = new Set<string>();
-    for (const { id, kind } of this.entities()) {
-      if (kind.shape === 'single') continue;
+    for (const entity of this.entities()) {
+      const { id, kind } = entity;
+      // a single block prints an id only when referenced
+      if (kind.shape === 'single' && !referenced.has(entity)) continue;
       if (seen.has(id)) throw new Error(`${this.name}: two entities have the id "${id}"`);
       seen.add(id);
     }

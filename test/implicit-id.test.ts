@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parse } from 'yaml';
 import { device, lambda, reserveIds } from '../src/index.ts';
-import { script, wifi } from './entities.ts';
+import { script, sensor, wifi } from './entities.ts';
 
 // `wifi` is a stand-in for any single block that names an ESPHome integration
 reserveIds(['wifi']);
@@ -35,4 +35,21 @@ test('a lambda that names the block gives it an id', () => {
   );
   assert.equal(config.wifi.id, 'my_wifi');
   assert.deepEqual(config.script[0].then, [{ lambda: 'id(my_wifi)->disable();' }]);
+});
+
+test('a block that is named collides with an entity of the same id', () => {
+  const clash = device('d', () => {
+    const radio = wifi({ ssid: 'x' });
+    sensor({ id: 'my_wifi' });
+    script({ id: 'run', then: () => ({ 'wifi.disable': { id: radio } }) });
+  });
+  assert.throws(() => clash.toYaml(), /two entities have the id "my_wifi"/);
+});
+
+test('a block nothing names does not collide', () => {
+  const unnamed = device('d', () => {
+    wifi({ ssid: 'x' });
+    sensor({ id: 'my_wifi' });
+  });
+  assert.doesNotThrow(() => unnamed.toYaml());
 });
