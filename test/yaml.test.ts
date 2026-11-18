@@ -42,9 +42,8 @@ test('a lambda directly in a list is a lambda action', () => {
 });
 
 test('an entity renders as its id', () => {
-  const root = device('d', () => {
+  device('d', () => {
     const temp = sensor({ id: 'temp' });
     assert.equal(toYaml({ sensor: temp }), 'sensor: temp\n');
-  });
-  assert.ok(root);
+  }).toYaml();
 });

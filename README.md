@@ -72,6 +72,11 @@ A `tsconfig.json` for a project of devices:
 A device is `devices/<name>.ts` or `devices/<name>/index.ts`, and its default export is
 `esp.device(name, build)`.
 `ESPHOME_DEVICES` sets another directory.
+`build` runs when the device is rendered, not when its file loads,
+so a device file may have other exports, such as a MAC address another device imports,
+even when two devices import each other.
+An async `build` needs `await root.load()` before `root.toYaml()`;
+the CLI does that.
 
 - `esp.<domain>.<platform>(props)` and `esp.<component>(props)` create entities:
   `esp.sensor.adc(...)`, `esp.wifi(...)`.

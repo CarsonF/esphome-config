@@ -9,7 +9,7 @@ test('an id is the path from the device, joined by _', () => {
     const cooler = construct('cooler', (_: { id?: string }) => sensor({ id: 'temp' }));
     assert.equal(cooler({}).id, 'cooler_temp');
     assert.equal(cooler({ id: 'fan' }).id, 'fan_temp');
-  });
+  }).toYaml();
 });
 
 test('an id without one comes from the name, else the label, made unique', () => {
@@ -18,12 +18,12 @@ test('an id without one comes from the name, else the label, made unique', () =>
     assert.equal(sensor({ name: 'Living Room Temp' }).id, 'living_room_temp_2');
     assert.equal(sensor({ name: '42' }).id, 'probe');
     assert.equal(sensor({}).id, 'probe_2');
-  });
+  }).toYaml();
 });
 
 test('an id naming an ESPHome integration gets a my_ prefix', () => {
   reserveIds(['wifi']);
-  device('d', () => assert.equal(sensor({ id: 'wifi' }).id, 'my_wifi'));
+  device('d', () => assert.equal(sensor({ id: 'wifi' }).id, 'my_wifi')).toYaml();
 });
 
 test('a bad or repeated local id is rejected', () => {
@@ -34,7 +34,7 @@ test('a bad or repeated local id is rejected', () => {
     const scope = new Construct(currentScope(), 'group');
     new Construct(scope, 'x');
     assert.throws(() => new Construct(scope, 'x'), /group already has a child "x"/);
-  });
+  }).toYaml();
 });
 
 test('entities need a device, and not a running lazy action', () => {

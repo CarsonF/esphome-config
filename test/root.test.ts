@@ -111,12 +111,38 @@ test('localExternals swaps a git source for a local path', () => {
   ]);
 });
 
-test('an async build resolves to the root', async () => {
-  const root = await device('d', async () => {
+test('an async build loads before it renders', async () => {
+  const root = device('d', async () => {
     await Promise.resolve();
     sensor({ id: 'after_await' });
   });
+  assert.throws(() => root.toYaml(), /await load\(\) first/);
+  assert.equal(await root.load(), root);
   assert.match(root.toYaml(), /id: after_await/);
+});
+
+test('a build waits for the first render and runs once', () => {
+  let runs = 0;
+  const root = device('d', () => {
+    runs++;
+    sensor({ id: 'a' });
+  });
+  assert.equal(runs, 0);
+  root.toYaml();
+  root.secretNames();
+  assert.equal(runs, 1);
+});
+
+test('a failed build fails the same way again, without running twice', async () => {
+  let runs = 0;
+  const root = device('d', () => {
+    runs++;
+    throw new Error('boom');
+  });
+  assert.throws(() => root.toYaml(), /boom/);
+  assert.throws(() => root.toYaml(), /boom/);
+  await assert.rejects(root.load(), /boom/);
+  assert.equal(runs, 1);
 });
 
 /** `!lambda` and `!secret` read as plain strings. */
