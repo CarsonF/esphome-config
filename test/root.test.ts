@@ -67,6 +67,16 @@ test('a single block has an id only when something refers to it, with a reserved
   assert.deepEqual(config.script, [{ id: 'run', then: [{ 'wifi.disable': { id: 'my_wifi' } }] }]);
 });
 
+test('a referenced single block collides with an entity of the same id', () => {
+  reserveIds(['wifi']);
+  const clash = device('d', () => {
+    const radio = wifi({ ssid: 'x' });
+    sensor({ id: 'my_wifi' });
+    script({ id: 'run', then: () => ({ 'wifi.disable': { id: radio } }) });
+  });
+  assert.throws(() => clash.toYaml(), /two entities have the id "my_wifi"/);
+});
+
 test('ids that collide across scopes are rejected', () => {
   const clash = device('d', () => {
     sensor({ id: 'a_b' });
