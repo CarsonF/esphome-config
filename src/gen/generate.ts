@@ -575,7 +575,7 @@ async function entityClass(spec: EntitySpec): Promise<Made | ''> {
         .map(([key, v]) => triggerMethod(key, v, spec.actionNamespace)),
     )
   ).join('');
-  const methods = await entityMethods(spec.actionNamespace, cpp as string[]);
+  const methods = await entityMethods(spec.actionNamespace, cpp as string[], shape);
   const expr = spec.factory(spec.name, required ? '' : ' = {}', shape, rule);
   const code = `
 /** ${spec.doc} */
@@ -635,7 +635,11 @@ const isTrigger = (key: string, v: Var): boolean => v.type === 'trigger' && key 
 const hasRequired = (vars: [string, Var][]): boolean => vars.some(([, v]) => v.key === 'Required');
 
 /** Methods for the actions and conditions that take this entity as their `id`: `sw.is_on()`. */
-async function entityMethods(namespace: string, cpp: string[]): Promise<string> {
+async function entityMethods(
+  namespace: string,
+  cpp: string[],
+  shape: Shape,
+): Promise<string> {
   const taken = new Set<string>();
   const tree: Tree = { members: [], children: new Map() };
   for (const section of ['action', 'condition'] as const) {
@@ -643,7 +647,7 @@ async function entityMethods(namespace: string, cpp: string[]): Promise<string> 
       (await load(namespace))[namespace]?.[section] ?? {},
     );
     const methods = await Promise.all(
-      entries.map(([name, spec]) => entityMethod(namespace, section, name, spec, cpp)),
+      entries.map(([name, spec]) => entityMethod(namespace, section, name, spec, cpp, shape)),
     );
     for (const method of methods.filter((m) => m !== undefined)) {
       const key = method.path.join('.');
@@ -682,6 +686,7 @@ async function entityMethod(
   name: string,
   spec: Json,
   cpp: string[],
+  shape: Shape,
 ): Promise<EntityMethod | undefined> {
   const vars = await flatten(spec.schema ?? {});
   const doc = spec.docs ? `  /** ${docLine(spec.docs)} */\n` : '';
@@ -698,9 +703,14 @@ async function entityMethod(
     method: `${doc}  ${leaf}(${params}): ${returns} {\n    return ${body};\n  }\n`,
     arrow: `${doc}      ${leaf}: (${params}): ${returns} => ${body},\n`,
   });
+  // ESPHome fills a generated `id` with the one block of its type, so a single block can be implicit
+  const implicit = (v: Var): boolean => shape === 'single' && v.key === 'GeneratedID';
   if (takesId(vars)) {
     if (!cpp.includes(vars.id.use_id_type!)) return undefined;
-    return make(`...rest: Tail<typeof ${fn}>`, `${fn}(this, ...rest)`);
+    return make(
+      `...rest: Tail<typeof ${fn}>`,
+      `${fn}(${implicit(vars.id) ? 'undefined' : 'this'}, ...rest)`,
+    );
   }
   // otherwise the entity fills whichever prop refers to it, e.g. `transmitter_id`
   const owner = Object.entries(vars).find(
@@ -711,7 +721,7 @@ async function entityMethod(
   const props = `Omit<NonNullable<Parameters<typeof ${fn}>[0]>, '${owner}'>`;
   return make(
     `props: ${props}${hasRequired(others) ? '' : ' = {}'}`,
-    `${fn}({ ...props, ${owner}: this })`,
+    implicit(vars[owner]) ? `${fn}(props)` : `${fn}({ ...props, ${owner}: this })`,
   );
 }
 
