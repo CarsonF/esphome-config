@@ -52,7 +52,7 @@ test('a single block is not a list, and a listable one only when there are two',
   assert.deepEqual(two.i2c, [{ sda: 1 }, { sda: 2 }]);
 });
 
-test('a single block has an id only when something refers to it, with a reserved id suffixed', () => {
+test('a single block has an id only when something refers to it, with a reserved id prefixed', () => {
   reserveIds(['wifi']);
   const unreferenced = parse(device('d', () => {
       wifi({ ssid: 'x' });
@@ -63,8 +63,8 @@ test('a single block has an id only when something refers to it, with a reserved
     script({ id: 'run', then: () => ({ 'wifi.disable': { id: radio } }) });
   }).toYaml();
   const config = parse(yaml);
-  assert.deepEqual(config.wifi, { id: 'wifi_', ssid: 'x' });
-  assert.deepEqual(config.script, [{ id: 'run', then: [{ 'wifi.disable': { id: 'wifi_' } }] }]);
+  assert.deepEqual(config.wifi, { id: 'my_wifi', ssid: 'x' });
+  assert.deepEqual(config.script, [{ id: 'run', then: [{ 'wifi.disable': { id: 'my_wifi' } }] }]);
 });
 
 test('ids that collide across scopes are rejected', () => {

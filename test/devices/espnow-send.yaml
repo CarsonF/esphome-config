@@ -5,12 +5,12 @@ esp32:
   framework:
     type: esp-idf
 espnow:
-  id: espnow_
+  id: my_espnow
   channel: 1
 interval:
   - interval: 10s
     then:
       - espnow.send:
-          id: espnow_
+          id: my_espnow
           address: FF:FF:FF:FF:FF:FF
           data: hi
