@@ -1,5 +1,6 @@
 import type { RequireAtLeastOne, RequireExactlyOne } from 'type-fest';
 import type { CppFn } from './cpp.ts';
+import { Construct } from './construct.ts';
 
 export type Config = Record<string, unknown>;
 export type Action = Tagged | Config | CppFn<any, unknown>;
@@ -163,8 +164,8 @@ function isIdentified(value: unknown): boolean {
 
 function interpolate(value: unknown): string {
   // duck-typed so tags.ts doesn't import entities.ts, which imports it
-  const entity = value as { id?: unknown };
-  return typeof entity?.id === 'string' ? `id(${entity.id})` : String(value);
+  const id = (value as { id?: unknown })?.id;
+  return typeof id === 'string' ? `id(${id})` : String(value);
 }
 
 function dedent(code: string): string {

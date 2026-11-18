@@ -3,7 +3,7 @@ import { doWhile } from './constructs/do-while.ts';
 import { esphomeLists } from './constructs/esphome-lists.ts';
 import { globals } from './dsl/global.ts';
 import { cpp } from './dsl/cpp.ts';
-import { currentScope, device, lambda, secret, type Construct } from './dsl/index.ts';
+import { currentScope, device, lambda, secret, Construct, rootOf } from './dsl/index.ts';
 import * as real from './generated/index.ts';
 import type {
   Actions,
@@ -54,9 +54,8 @@ function handWritten() {
 
 /** `name` defaults to the device's. */
 function esphome(props: Omit<real.Esphome.Props, 'name'> & { name?: string } = {}): real.Esphome {
-  let root: Construct = currentScope();
-  while (root.scope) root = root.scope;
-  return real.esphome({ name: root.localId, ...props });
+  const root = rootOf(currentScope());
+  return real.esphome({ name: root[Construct.localId], ...props });
 }
 
 type HandWritten = ReturnType<typeof handWritten>;

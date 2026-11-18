@@ -1,5 +1,5 @@
-import { currentScope, Entity } from '../dsl/index.ts';
-import type { Config, Construct } from '../dsl/index.ts';
+import { Construct, currentScope, Entity, rootOf } from '../dsl/index.ts';
+import type { Config } from '../dsl/index.ts';
 import { external_components, type ExternalComponents } from '../generated/index.ts';
 
 /**
@@ -15,7 +15,7 @@ export function externalSource<const Component extends string>(
     const wanted = components.length > 0 ? components : provided;
     const existing = findEntry(currentScope(), source);
     if (!existing) return external_components({ source, components: [...wanted] });
-    const { props } = existing;
+    const props = existing[Entity.props];
     // an entry without `components` already loads all of them
     if (props.components) props.components = [...new Set([...props.components, ...wanted])];
     return existing;
@@ -24,12 +24,10 @@ export function externalSource<const Component extends string>(
 
 /** The device's entry for `source`, wherever in the tree it was added. */
 function findEntry(scope: Construct, source: string): ExternalComponents | undefined {
-  let root = scope;
-  while (root.scope) root = root.scope;
-  return [...root.walk()].find(
+  return [...rootOf(scope)[Construct.walk]()].find(
     (node): node is ExternalComponents =>
       node instanceof Entity &&
-      node.kind.domain === 'external_components' &&
-      (node.props as Config).source === source,
+      node[Entity.kind].domain === 'external_components' &&
+      (node[Entity.props] as Config).source === source,
   );
 }

@@ -22,6 +22,8 @@ function logAt(level: Level) {
       tag,
       level,
       format,
-      args: args.map((arg) => (arg instanceof Entity ? plain(`id(${arg.id})`, arg) : String(arg))),
+      args: args.map((arg) =>
+        arg instanceof Entity ? plain(`id(${arg.id})`, arg) : String(arg),
+      ),
     });
 }

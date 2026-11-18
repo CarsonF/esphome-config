@@ -7,6 +7,7 @@ export {
   autoId,
   localId,
   reserveIds,
+  rootOf,
 } from './construct.ts';
 export type { CppFn } from './cpp.ts';
 export { device } from './device.ts';
