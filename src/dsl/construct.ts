@@ -110,10 +110,15 @@ export class Entity<Props extends object = Config> extends Construct {
     );
     return {
       ...(platform && { platform }),
-      ...(shape !== 'single' && this.needsId(referenced) && { id: this.id }),
+      ...(this.printsId(shape, referenced) && { id: this.id }),
       ...rest,
       ...automations,
     };
+  }
+
+  private printsId(shape: Kind['shape'], referenced?: ReadonlySet<unknown>): boolean {
+    // a single block like `espnow:` has an id only for what refers to it: `espnow.send`
+    return shape === 'single' ? !!referenced?.has(this) : this.needsId(referenced);
   }
 
   private needsId(referenced?: ReadonlySet<unknown>): boolean {
