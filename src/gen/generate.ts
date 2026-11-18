@@ -650,6 +650,7 @@ async function entityMethods(
       entries.map(([name, spec]) => entityMethod(namespace, section, name, spec, cpp, shape)),
     );
     for (const method of methods.filter((m) => m !== undefined)) {
+      assertFreeMember(namespace, method.path.join('.'), method.path[0]);
       const key = method.path.join('.');
       if (taken.has(key)) continue;
       taken.add(key);
@@ -670,6 +671,16 @@ async function entityMethods(
       )
       .join('')
   );
+}
+
+/** Members every entity class has as a string key; the rest of its internals are symbols. */
+const TAKEN_MEMBERS = new Set(['id', 'cpp', ...Object.getOwnPropertyNames(Object.prototype)]);
+
+/** Fails the run when ESPHome names something `member`, which would shadow an entity's own. */
+function assertFreeMember(namespace: string, name: string, member: string): void {
+  if (TAKEN_MEMBERS.has(member)) {
+    throw new Error(`${namespace}.${name}: "${member}" would shadow a member of every entity`);
+  }
 }
 
 interface EntityMethod {
@@ -800,6 +811,7 @@ async function triggerPropLines(vars: Record<string, Var>, namespace: string): P
 }
 
 async function triggerMethod(key: string, v: Var, namespace: string): Promise<string> {
+  assertFreeMember(namespace, key, key);
   const doc = v.docs ? `  /** ${docLine(v.docs)} */\n` : '';
   return `${doc}  ${key}(automation: ${await triggerType(key, v, namespace)}): this {
     return this[Entity.on]('${key}', automation);
