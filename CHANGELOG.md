@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026.9.4](https://github.com/CarsonF/esphome-config/compare/v2026.9.3...v2026.9.4) (2026-11-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* an async build no longer runs on `await device(...)`. Call `await root.load()` before `toYaml()`.
+
+### Features
+
+* delay a device's build until it is rendered ([e0ad2b9](https://github.com/CarsonF/esphome-config/commit/e0ad2b952694cb5e87e4e5acc02d577a3e30689b))
+
 ## [2026.9.3](https://github.com/CarsonF/esphome-config/compare/v2026.9.2...v2026.9.3) (2026-11-18)
 
 
