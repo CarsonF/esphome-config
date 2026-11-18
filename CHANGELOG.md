@@ -1,5 +1,24 @@
 # Changelog
 
+## [2026.9.3](https://github.com/CarsonF/esphome-config/compare/v2026.9.2...v2026.9.3) (2026-11-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* key Construct and Entity internals by symbol
+
+### Features
+
+* fail generation when an ESPHome name would shadow an entity member ([452de5b](https://github.com/CarsonF/esphome-config/commit/452de5b19217951c68a3c345913b7adab3a9c3d8))
+* key Construct and Entity internals by symbol ([1da4095](https://github.com/CarsonF/esphome-config/commit/1da4095e5bc30540b6fefa3b2975538c60b19517))
+* leave out the implicit id when there is only one instance ([b73c3e1](https://github.com/CarsonF/esphome-config/commit/b73c3e1ce9b64332964e0a71d229da3d395202a7))
+
+
+### Bug Fixes
+
+* print the id of a component configured once when it is referenced ([4f3cf62](https://github.com/CarsonF/esphome-config/commit/4f3cf62028f07df9ce32e4d931386ef3aceb1512))
+* reject a referenced component whose id collides with another entity ([867282e](https://github.com/CarsonF/esphome-config/commit/867282e979eb0aea6c6fb949c64d1e2df589de23))
+
 ## [2026.9.2](https://github.com/CarsonF/esphome-config/compare/v2026.9.1...v2026.9.2) (2026-11-18)
 
 
