@@ -1,5 +1,4 @@
-import { autoId, Entity, type Cpp } from './construct.ts';
-import type { Construct } from './construct.ts';
+import { autoId, Construct, Entity, type Cpp } from './construct.ts';
 import { currentScope } from './scope.ts';
 import { lambda, type Action, type Config } from './tags.ts';
 
@@ -37,7 +36,7 @@ export class Global<Value = unknown> extends Entity {
 
   /** A global that restores its value keeps its id as given: the stored value is found by it. */
   override get id(): string {
-    return this.restores ? this.localId : super.id;
+    return this.restores ? this[Construct.localId] : super.id;
   }
 
   constructor(

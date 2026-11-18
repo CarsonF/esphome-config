@@ -44,7 +44,9 @@ export class Root extends Construct {
       }
     };
     visit(this.blocks);
-    this.entities().forEach((entity) => visit(resolveThunks(entity.toConfig(), this.resolved)));
+    for (const entity of this.entities()) {
+      visit(resolveThunks(entity[Entity.toConfig](), this.resolved));
+    }
     return [...found];
   }
 
@@ -52,33 +54,33 @@ export class Root extends Construct {
 
   private build(referenced?: ReadonlySet<unknown>): Config {
     const domains = mapValues(
-      groupBy(this.entities(), (entity) => entity.kind.domain),
+      groupBy(this.entities(), (entity) => entity[Entity.kind].domain),
       (entities) => {
-        const configs = entities.map((entity) => entity.toConfig(referenced));
-        const { shape } = entities[0].kind;
+        const configs = entities.map((entity) => entity[Entity.toConfig](referenced));
+        const { shape } = entities[0][Entity.kind];
         const block = shape === 'single' || (shape === 'listable' && configs.length === 1);
         return block ? configs[0] : configs;
       },
     );
     // `esphome:` needs only the device name, so a device that never configures it still gets one
     const blocks = { esphome: { name: this.name }, ...this.blocks, ...domains };
-    for (const construct of this.walk()) {
+    for (const construct of this[Construct.walk]()) {
       if (construct instanceof Contribution) construct.contribute(blocks);
     }
     return resolveThunks(blocks, this.resolved);
   }
 
   private entities(): Entity<any>[] {
-    return [...this.walk()].filter((c): c is Entity<any> => c instanceof Entity);
+    return [...this[Construct.walk]()].filter((c): c is Entity<any> => c instanceof Entity);
   }
 
   /** ESPHome ids are global, and `a_b` under `a` collides with `b` under `a_b`. */
   private checkIds(referenced: ReadonlySet<unknown>): void {
     const seen = new Set<string>();
     for (const entity of this.entities()) {
-      const { id, kind } = entity;
+      const { id } = entity;
       // a single block prints an id only when referenced
-      if (kind.shape === 'single' && !referenced.has(entity)) continue;
+      if (entity[Entity.kind].shape === 'single' && !referenced.has(entity)) continue;
       if (seen.has(id)) throw new Error(`${this.name}: two entities have the id "${id}"`);
       seen.add(id);
     }

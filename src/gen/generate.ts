@@ -802,7 +802,7 @@ async function triggerPropLines(vars: Record<string, Var>, namespace: string): P
 async function triggerMethod(key: string, v: Var, namespace: string): Promise<string> {
   const doc = v.docs ? `  /** ${docLine(v.docs)} */\n` : '';
   return `${doc}  ${key}(automation: ${await triggerType(key, v, namespace)}): this {
-    return this.on('${key}', automation);
+    return this[Entity.on]('${key}', automation);
   }
 `;
 }

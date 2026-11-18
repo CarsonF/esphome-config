@@ -16,7 +16,7 @@ export const sensor = entityFactory(
     }
 
     on_value(automation: Many<AnyAction>): this {
-      return this.on('on_value', automation);
+      return this[Entity.on]('on_value', automation);
     }
   },
   'probe',
