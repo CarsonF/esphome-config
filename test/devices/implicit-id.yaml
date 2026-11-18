@@ -1,0 +1,14 @@
+esphome:
+  name: implicit-id
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+espnow:
+  channel: 1
+interval:
+  - interval: 10s
+    then:
+      - espnow.send:
+          address: FF:FF:FF:FF:FF:FF
+          data: hi
