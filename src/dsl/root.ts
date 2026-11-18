@@ -11,7 +11,7 @@ import { toYaml } from './yaml.ts';
 export class Root extends Construct {
   readonly name: string;
   private readonly blocks: Config = {};
-  /** Step functions already run, so the two render passes and the secrets scan share one run. */
+  /** Lazy actions already run, so the two render passes and the secrets scan share one run. */
   private readonly resolved: Resolved = new Map();
 
   constructor(name: string) {

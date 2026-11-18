@@ -419,7 +419,7 @@ function platformClass(domain: string, spec: string): Promise<Made | ''> {
     actionNamespace: domain,
     kind: () => `{ domain: '${domain}', platform: '${platform}' }`,
     doc: `\`${domain}: - platform: ${platform}\``,
-    factory: (name, opt) => factoryCall(name, opt, `${platform}_${domain}`),
+    factory: (name, opt, _shape, rule) => factoryCall(name, opt, `${platform}_${domain}`, rule),
   });
 }
 
@@ -432,12 +432,34 @@ function componentClass(name: string): Promise<Made | ''> {
     actionNamespace: name,
     kind: (shape) => `{ domain: '${name}'${shape === 'list' ? '' : `, shape: '${shape}'`} }`,
     doc: `\`${name}:\``,
-    factory: (cls, opt, shape) =>
+    factory: (cls, opt, shape, rule) =>
       shape === 'single'
-        ? `(props: ${cls}.Props${opt}): ${cls} => new ${cls}(currentScope(), '${name}', props)`
-        : factoryCall(cls, opt, name),
+        ? `(props: ${propsType(cls, rule)}${opt}): ${cls} => new ${cls}(currentScope(), '${name}', props)`
+        : factoryCall(cls, opt, name, rule),
   });
 }
+
+/**
+ * The props whose docs say to give some of them, as a `Constrain` rule.
+ * Example: "At least one of `heat_output` and `cool_output` must be specified" is
+ * `{ atLeast: "heat_output" | "cool_output" }`
+ */
+function requiredOneOf(own: [string, Var][]): string | undefined {
+  const names = new Set(own.map(([key]) => key));
+  for (const [, v] of own) {
+    const found = v.docs?.match(ONE_OF);
+    const keys = [...(found?.[2].matchAll(/`(\w+)`/g) ?? [])]
+      .map((m) => m[1])
+      .filter((key) => names.has(key));
+    if (found && keys.length > 1) {
+      const how = found[1].toLowerCase() === 'exactly' ? 'exactly' : 'atLeast';
+      return `{ ${how}: ${keys.map(literal).join(' | ')} }`;
+    }
+  }
+}
+
+const ONE_OF =
+  /\b(at least|exactly) one of ((?:`\w+`[\s,]*(?:and|or)?[\s,]*)+)(?:must|need|is required)/i;
 
 interface EntitySpec {
   name: string;
@@ -450,14 +472,23 @@ interface EntitySpec {
   kind: (shape: Shape) => string;
   doc: string;
   /** The expression for a function that builds the class in the current scope. */
-  factory: (cls: string, optionalProps: string, shape: Shape) => string;
+  factory: (cls: string, optionalProps: string, shape: Shape, rule?: string) => string;
 }
 
 /** The overloaded builder for a class: with an optional id when it has no required props. */
-const factoryCall = (cls: string, optionalProps: string, label: string): string =>
+const factoryCall = (cls: string, optionalProps: string, label: string, rule?: string): string =>
   optionalProps
     ? `optionalEntityFactory<${cls}.Props, ${cls}>(${cls}, '${label}')`
-    : `entityFactory<${cls}.Props, ${cls}>(${cls}, '${label}')`;
+    : `entityFactory<${cls}.Props, ${cls}${rule ? `, ${rule}` : ''}>(${cls}, '${label}')`;
+
+/** What a constructor takes: the props, narrowed by the `rule` of which to give. */
+const propsType = (cls: string, rule?: string): string => constrained(`${cls}.Props`, rule);
+
+const constrained = (props: string, rule?: string): string =>
+  rule ? `Constrain<${props}, ${rule}>` : props;
+
+const oneOfRule = (keys?: string[]): string | undefined =>
+  keys && `{ atLeast: ${keys.map(literal).join(' | ')} }`;
 
 const classNames = new Set<string>();
 
@@ -475,7 +506,7 @@ async function entityClass(spec: EntitySpec): Promise<Made | ''> {
     string,
     Var
   >;
-  const stepKeys = Object.entries(merged)
+  const actionKeys = Object.entries(merged)
     .filter(([k, v]) => isSteps(k, v))
     .map(([k]) => k);
   const idVar = merged.id;
@@ -489,7 +520,7 @@ async function entityClass(spec: EntitySpec): Promise<Made | ''> {
     .filter(([key, v]) => key !== 'id' && !v.id_type && isTrigger(key, v))
     .map(([key]) => key);
   const kind = withKindExtras(spec.kind(shape), [
-    stepKeys.length ? `steps: [${stepKeys.map((k) => `'${k}'`).join(', ')}]` : '',
+    actionKeys.length ? `actions: [${actionKeys.map((k) => `'${k}'`).join(', ')}]` : '',
     triggerKeys.length ? `triggers: [${triggerKeys.map((k) => `'${k}'`).join(', ')}]` : '',
     idMode ? `id: '${idMode}'` : '',
   ]);
@@ -524,6 +555,7 @@ async function entityClass(spec: EntitySpec): Promise<Made | ''> {
   const optionalKey = /default/i.test(config.docs ?? '') ? '?' : '';
   const extend = ({ parents }: Parts): string =>
     parents.length ? ` extends ${parents.join(', ')}` : '';
+  const rule = typedKey ? undefined : requiredOneOf(own);
   const members = typedKey
     ? variants
         .map(({ name }, i) => {
@@ -533,19 +565,24 @@ async function entityClass(spec: EntitySpec): Promise<Made | ''> {
       `\ntype Props =\n${variants.map(({ name }) => `  | ${variantName(name)}`).join('\n')};\n`
     : `interface Props${extend(bodies[0])} {\n${idProp}${bodies[0].own}${triggerProps[0]}}\n`;
   const required =
-    variants.some(({ vars }) => hasRequired(ownOf(vars))) || (!!typedKey && !optionalKey);
-  const triggers = own
-    .filter(([key, v]) => isTrigger(key, v))
-    .map(([key, v]) => triggerMethod(key, v, spec.actionNamespace))
-    .join('');
+    !!rule ||
+    variants.some(({ vars }) => hasRequired(ownOf(vars))) ||
+    (!!typedKey && !optionalKey);
+  const triggers = (
+    await Promise.all(
+      own
+        .filter(([key, v]) => isTrigger(key, v))
+        .map(([key, v]) => triggerMethod(key, v, spec.actionNamespace)),
+    )
+  ).join('');
   const methods = await entityMethods(spec.actionNamespace, cpp as string[]);
-  const expr = spec.factory(spec.name, required ? '' : ' = {}', shape);
+  const expr = spec.factory(spec.name, required ? '' : ' = {}', shape, rule);
   const code = `
 /** ${spec.doc} */
 export class ${spec.name} extends Entity<${spec.name}.Props> {
   declare readonly cpp: Cpp<${cpp.map((c) => JSON.stringify(c)).join(' | ') || 'never'}>;
 
-  constructor(scope: Construct, id: string, props: ${spec.name}.Props${required ? '' : ' = {}'}) {
+  constructor(scope: Construct, id: string, props: ${propsType(spec.name, rule)}${required ? '' : ' = {}'}) {
     super(scope, id, ${kind}, props);
   }
 ${triggers}${methods}}
@@ -583,7 +620,7 @@ async function variantsOf(config: Json): Promise<Variants | undefined> {
   return { key: config.typed_key, variants };
 }
 
-/** A prop holding steps: an action list, or a script's `then`. */
+/** A prop holding actions: an action list, or a script's `then`. */
 const isSteps = (key: string, v: Var): boolean =>
   v.registry === 'action' || (v.type === 'trigger' && key === 'then');
 
@@ -713,37 +750,49 @@ const TRIGGER_ARGS: Record<string, string> = {
   'text_sensor.on_raw_value': '[x: string]',
 };
 
-/** What a trigger's steps are: with typed arguments a `cpp()` function can take them. */
-const triggerStep = (key: string, namespace: string): string => {
-  const args = TRIGGER_ARGS[`${namespace}.${key}`];
-  return args ? `Config | Tagged | CppFn<${args}, unknown> | Thunk` : 'Step';
+/**
+ * Options of which a trigger or condition needs one, which ESPHome's schema doesn't say.
+ * Example: `sensor.on_value_range` and `sensor.in_range` take `above`, `below` or both.
+ */
+const AT_LEAST_ONE: Record<string, string[]> = {
+  'sensor.on_value_range': ['above', 'below'],
+  'number.on_value_range': ['above', 'below'],
+  'sensor.in_range': ['above', 'below'],
+  'number.in_range': ['above', 'below'],
 };
 
-/**
- * A trigger as a prop: the steps, or `{ then, ...options }` when it has options like `address`.
- * Example: on_value_range: { above: 30, then: [...] }
- */
+/** A trigger as a prop or an `on_x()` argument, e.g. `Trigger<{ above?: number }, [x: number]>`. */
+async function triggerType(key: string, v: Var, namespace: string): Promise<string> {
+  const id = `${namespace}.${key}`;
+  const options = v.schema ? await nestedSchema(v) : undefined;
+  const atLeastOne = AT_LEAST_ONE[id];
+  const defaults = ['never', 'any', 'never'];
+  const params = [
+    options ?? 'never',
+    TRIGGER_ARGS[id] ?? 'any',
+    atLeastOne?.map(literal).join(' | ') ?? 'never',
+  ];
+  while (params.length && params.at(-1) === defaults[params.length - 1]) params.pop();
+  const name = options && v.has_required_var ? 'TriggerWith' : 'Trigger';
+  return params.length ? `${name}<${params.join(', ')}>` : name;
+}
+
 async function triggerPropLines(vars: Record<string, Var>, namespace: string): Promise<string> {
   const lines = await Promise.all(
     Object.entries(vars)
       .filter(([key, v]) => isTrigger(key, v))
       .map(async ([key, v]) => {
-        const steps = `Many<${triggerStep(key, namespace)}>`;
-        const options = v.schema ? await nestedSchema(v) : undefined;
-        const object = options && `Omit<${options}, 'then'> & { then: ${steps} }`;
-        const type = !object ? steps : v.has_required_var ? object : `${steps} | (${object})`;
         const doc = v.docs ? `  /** ${docLine(v.docs)} */\n` : '';
-        return `${doc}  ${propName(key)}${v.key === 'Required' ? '' : '?'}: ${type};\n`;
+        return `${doc}  ${propName(key)}${v.key === 'Required' ? '' : '?'}: ${await triggerType(key, v, namespace)};\n`;
       }),
   );
   return lines.join('');
 }
 
-function triggerMethod(key: string, v: Var, namespace: string): string {
+async function triggerMethod(key: string, v: Var, namespace: string): Promise<string> {
   const doc = v.docs ? `  /** ${docLine(v.docs)} */\n` : '';
-  const step = triggerStep(key, namespace);
-  return `${doc}  ${key}(...actions: Many<${step}>[]): Automation {
-    return this.on('${key}', actions);
+  return `${doc}  ${key}(automation: ${await triggerType(key, v, namespace)}): this {
+    return this.on('${key}', automation);
   }
 `;
 }
@@ -788,7 +837,7 @@ const DOC_TYPES: Record<string, string> = {
   'float between 0 and 1': 'number | string | Tagged',
   bool: 'boolean | Tagged',
   mapping: 'Config',
-  automation: 'Many<Step>',
+  automation: 'Many<AnyAction>',
   'ipv4 address': 'string',
   url: 'string',
   uuid: 'string',
@@ -989,10 +1038,10 @@ async function baseType(v: Var): Promise<string> {
       // no entity is of a class without a namespace, like `Device`, so it is the id as written
       return v.use_id_type?.includes('::') ? `Ref<${JSON.stringify(v.use_id_type)}>` : 'string';
     case 'trigger':
-      return 'Many<Step>';
+      return 'Many<AnyAction>';
     case 'registry':
       return v.registry === 'action'
-        ? 'Many<Step>'
+        ? 'Many<AnyAction>'
         : v.registry === 'condition'
           ? 'Condition'
           : // a filter with no options is just its name, like `- invert`
@@ -1037,7 +1086,7 @@ async function writeActions(namespaces: string[]): Promise<void> {
     'actions',
     `${found.map(({ ns, id }) => `import { ${id}Actions, ${id}Conditions } from './${ns}.ts';`).join('\n')}
 
-/** Typed \`then:\` steps, e.g. \`actions.fan.turn_on(cooler)\`. */
+/** Typed \`then:\` actions, e.g. \`actions.fan.turn_on(cooler)\`. */
 export const actions = {\n${member('Actions')}\n};
 
 /** Typed conditions, e.g. \`conditions.not(conditions.sensor.in_range(temp, { above: 30 }))\`. */
@@ -1108,31 +1157,33 @@ async function builder(component: string, name: string, spec: Json, leaf: string
     return `${head}(value: Time | Lambda<number>): ${ret} {\n    return { '${key}': value };\n  },\n`;
   const vars = await flatten(schema);
   const rest = Object.entries(vars).filter(([k, v]) => k !== 'id' && !v.id_type);
-  const propsType = typeOf(
-    await schemaParts(schema, { omit: new Set(['id']), skip: (key) => key === 'id' }),
+  const rule = oneOfRule(AT_LEAST_ONE[key]) ?? requiredOneOf(rest);
+  const propsType = constrained(
+    typeOf(await schemaParts(schema, { omit: new Set(['id']), skip: (key) => key === 'id' })),
+    rule,
   );
-  const steps = Object.entries(vars)
+  const actions = Object.entries(vars)
     .filter(([k, v]) => isSteps(k, v) || v.type === 'trigger')
     .map(([k]) => `'${k}'`);
   const conditionKeys = Object.entries(vars)
     .filter(([, v]) => v.registry === 'condition')
     .map(([k]) => `'${k}'`);
   const wrap = (p: string) =>
-    steps.length || conditionKeys.length
-      ? `withSteps(${p}, [${steps.join(', ')}], [${conditionKeys.join(', ')}])`
+    actions.length || conditionKeys.length
+      ? `withActions(${p}, [${actions.join(', ')}], [${conditionKeys.join(', ')}])`
       : p;
   if (takesId(vars)) {
     const idVar = vars.id;
     const idType = `Ref<${JSON.stringify(idVar.use_id_type)}>`;
     const optionalId = idVar.key === 'Required' ? '' : '?';
-    const propsOptional = hasRequired(rest) ? '' : '?';
+    const propsOptional = rule || hasRequired(rest) ? '' : '?';
     return `${head}(id${optionalId}: ${idType}, props${propsOptional}: ${propsType}): ${ret} {
     return { '${key}': props && Object.keys(props).length || ${spec.maybe !== 'id'} ? { id, ...${wrap('props')} } : (id ?? null) };
   },
 `;
   }
-  const propsOptional = hasRequired(Object.entries(vars)) ? '' : '?';
-  const full = typeOf(await schemaParts(schema));
+  const propsOptional = rule || hasRequired(Object.entries(vars)) ? '' : '?';
+  const full = constrained(typeOf(await schemaParts(schema)), rule);
   return `${head}(props${propsOptional}: ${full}): ${ret} {
     return { '${key}': ${wrap('props')} ?? null };
   },
@@ -1148,8 +1199,8 @@ function write(name: string, body: string, depth = 0): void {
   // external output imports the package, wherever the consumer puts it
   const dsl = EXTERNAL_MODE ? 'esphome-config' : `${'../'.repeat(depth + 1)}dsl/index.ts`;
   const header = `// Generated by esphome-config from the ESPHome ${VERSION} schema; do not edit.
-import { Entity, currentScope, entityFactory, flat, optionalEntityFactory, toCondition, withSteps, type Automation, type Construct, type Cpp, type CppFn, type InternalPin, type Pin, type Ref } from '${dsl}';
-import type { Action, Any, Condition, Config, Frequency, Lambda, Many, Percent, Step, Tagged, Tail, Thunk, Time, Value } from '${dsl}';
+import { Entity, currentScope, entityFactory, flat, optionalEntityFactory, toCondition, withActions, type Construct, type Cpp, type CppFn, type InternalPin, type Pin, type Ref } from '${dsl}';
+import type { Action, Any, AnyAction, Condition, Config, Constrain, Frequency, Lambda, Many, Percent, Tagged, Tail, Thunk, Time, Trigger, TriggerWith, Value } from '${dsl}';
 import type * as S from '${depth ? '../'.repeat(depth) : './'}schemas.ts';
 import type * as M from '${EXTERNAL_MODE ? 'esphome-config/generated/members' : `${depth ? '../'.repeat(depth) : './'}members.ts`}';
 ${name.startsWith('actions/') ? '' : actionImports(depth)}`;
@@ -1212,6 +1263,8 @@ const pascal = (name: string): string =>
   name.replace(/(^|_)(\w)/g, (_, __, c: string) => c.toUpperCase());
 const camel = (name: string): string =>
   name.replace(/[_-](\w)/g, (_, c: string) => c.toUpperCase());
+const literal = (key: string): string => JSON.stringify(key);
+
 const propName = (key: string): string => (/^[A-Za-z_]\w*$/.test(key) ? key : JSON.stringify(key));
 
 /** First paragraph with links flattened, and any comment terminator defused. */

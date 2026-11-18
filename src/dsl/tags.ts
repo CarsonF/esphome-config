@@ -1,16 +1,65 @@
+import type { RequireAtLeastOne, RequireExactlyOne } from 'type-fest';
 import type { CppFn } from './cpp.ts';
 
 export type Config = Record<string, unknown>;
 export type Action = Tagged | Config | CppFn<any, unknown>;
-/** A step as given: an `Action`, or a function building steps when the YAML renders. */
-export type Step = Action | Thunk;
-export type Thunk = () => Many<Step>;
+/** An action as given: an `Action`, or a function building actions when the YAML renders. */
+export type AnyAction = Action | LazyAction;
+export type LazyAction = Thunk<Many<AnyAction>>;
+/** A function that builds `T` later. */
+// an interface, so a recursive type can include it
+export interface Thunk<T> {
+  (): T;
+}
 /** A `cpp()` lambda here has to return a boolean; the `lambda` tag is not checked. */
 export type Condition = Tagged | Config | CppFn<any, boolean>;
 /** A computed value: a `!lambda`, or a `cpp()` function returning what the field takes. */
 export type Lambda<Ret = unknown> = Tagged | CppFn<any, Ret>;
-/** One item, or any nesting of arrays of them: a single step, varargs or a list. */
+/** One item, or any nesting of arrays of them. */
 export type Many<T> = T | readonly Many<T>[];
+/**
+ * A trigger's argument: the actions, or `{ then, ...options }` when it has options.
+ * `Args` are what it hands a `cpp()` function, e.g. `[x: number]`.
+ * Example: Trigger<{ above?: number }> is `[...]` or `{ above: 30, then: [...] }`
+ */
+export type Trigger<
+  Options extends object = never,
+  Args extends unknown[] = any,
+  AtLeastOne extends keyof Options = never,
+> =
+  | Many<TriggerAction<Args>>
+  | ([Options] extends [never] ? never : TriggerWith<Options, Args, AtLeastOne>);
+/**
+ * A trigger that can't do without its options, e.g. `timing` of `on_multi_click`.
+ * `AtLeastOne` are options of which one has to be given, e.g. `above` and `below`.
+ */
+export type TriggerWith<
+  Options extends object,
+  Args extends unknown[] = any,
+  AtLeastOne extends keyof Options = never,
+> = ([AtLeastOne] extends [never]
+  ? Omit<Options, 'then'>
+  : RequireAtLeastOne<Omit<Options, 'then'>, Extract<AtLeastOne, keyof Omit<Options, 'then'>>>) & {
+  then: Many<TriggerAction<Args>>;
+};
+/** An action of a trigger, where a `cpp()` function takes `Args` if they're known. */
+export type TriggerAction<Args extends unknown[] = any> =
+  | Config
+  | Tagged
+  | CppFn<Args, unknown>
+  | LazyAction;
+/** Props of which some must be given, e.g. `{ atLeast: 'heat_output' | 'cool_output' }`. */
+export type OneOfRule = { atLeast: PropertyKey } | { exactly: PropertyKey };
+/**
+ * `Props` where the `Rule` holds: `{ atLeast: K }` needs one or more of `K`, `{ exactly: K }` one.
+ */
+export type Constrain<Props extends object, Rule extends OneOfRule = never> = [Rule] extends [never]
+  ? Props
+  : Rule extends { atLeast: infer K extends keyof Props }
+    ? RequireAtLeastOne<Props, K>
+    : Rule extends { exactly: infer K extends keyof Props }
+      ? RequireExactlyOne<Props, K>
+      : Props;
 /** A field the schema doesn't type: any YAML. */
 export type Any = Value | Config | Any[];
 /**
@@ -84,15 +133,17 @@ export function flat<T>(items: readonly Many<T>[]): T[] {
 export const toCondition = (condition: Condition): Config =>
   condition instanceof Tagged ? { lambda: condition } : (condition as Config);
 
-/** Props with the `steps` keys flattened to lists, and the `conditions` keys as conditions. */
-export function withSteps<P extends object | undefined>(
+/** Props with the `actions` keys flattened to lists, and the `conditions` keys as conditions. */
+export function withActions<P extends object | undefined>(
   props: P,
-  steps: readonly string[],
+  actions: readonly string[],
   conditions: readonly string[] = [],
 ): P {
   if (!props) return props;
   const out: Record<string, unknown> = { ...props };
-  for (const key of steps) if (out[key] !== undefined) out[key] = flat([out[key] as Many<Step>]);
+  for (const key of actions) {
+    if (out[key] !== undefined) out[key] = flat([out[key] as Many<AnyAction>]);
+  }
   for (const key of conditions) {
     if (out[key] !== undefined) out[key] = toCondition(out[key] as Condition);
   }

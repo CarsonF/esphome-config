@@ -1,5 +1,5 @@
 import { isPlainObject } from 'remeda';
-import { flat, withSteps, type Config, type Many, type Step } from './tags.ts';
+import { flat, withActions, type AnyAction, type Config, type Many } from './tags.ts';
 import { assertNotResolving, markThunks } from './thunk.ts';
 
 /**
@@ -67,9 +67,9 @@ export interface Kind {
   domain: string;
   platform?: string;
   shape?: 'single' | 'listable';
-  /** Props that hold steps, which may be given as one, varargs or a list. */
-  steps?: string[];
-  /** Props that are triggers: steps, or `{ then, ...options }`. */
+  /** Props that hold actions, which may be given as one, varargs or a list. */
+  actions?: string[];
+  /** Props that are triggers: actions, or `{ then, ...options }`. */
   triggers?: string[];
   /**
    * When the YAML needs the entry's `id`: `always`, or `unlessNamed`.
@@ -82,7 +82,7 @@ export interface Kind {
 export class Entity<Props extends object = Config> extends Construct {
   readonly kind: Kind;
   readonly props: Props;
-  private readonly automations = new Map<string, Automation[]>();
+  private readonly automations = new Map<string, Config[]>();
 
   constructor(scope: Construct, id: string, kind: Kind, props: Props) {
     super(scope, id);
@@ -93,18 +93,17 @@ export class Entity<Props extends object = Config> extends Construct {
 
   /** `referenced` is every entity something names; omit it to print every id. */
   toConfig(referenced?: ReadonlySet<unknown>): Config {
-    const { platform, shape, steps = [], triggers = [] } = this.kind;
-    const rest = { ...withSteps(this.props, steps) } as Config;
+    const { platform, shape, actions = [], triggers = [] } = this.kind;
+    const rest = { ...withActions(this.props, actions) } as Config;
     // a trigger given as a prop and through `on_x()` is one list of automations
-    const fromProps = new Map<string, Config[]>();
+    const merged = new Map<string, Config[]>();
     for (const key of Object.keys(rest).filter((name) => triggers.includes(name))) {
       const given = rest[key];
       delete rest[key];
-      if (given !== undefined) fromProps.set(key, [asAutomation(given)]);
+      if (given !== undefined) merged.set(key, [asAutomation(given)]);
     }
-    const merged = new Map(fromProps);
     for (const [trigger, list] of this.automations) {
-      merged.set(trigger, [...(merged.get(trigger) ?? []), ...list.map((a) => a.toConfig())]);
+      merged.set(trigger, [...(merged.get(trigger) ?? []), ...list]);
     }
     const automations = Object.fromEntries(
       [...merged].map(([trigger, list]) => [trigger, list.length === 1 ? list[0] : list]),
@@ -128,46 +127,18 @@ export class Entity<Props extends object = Config> extends Construct {
   }
 
   /** Each call is its own automation on `trigger`, e.g. `on_value`. */
-  protected on(trigger: string, actions: Many<Step>[]): Automation {
-    const automation = new Automation(actions);
-    this.automations.set(trigger, [...(this.automations.get(trigger) ?? []), automation]);
-    return automation;
+  protected on(trigger: string, given: unknown): this {
+    markThunks(given);
+    this.automations.set(trigger, [...(this.automations.get(trigger) ?? []), asAutomation(given)]);
+    return this;
   }
 }
 
-/** A trigger prop as an automation: `{ then, ...options }` as written, or just the steps. */
+/** A trigger prop as an automation: `{ then, ...options }` as written, or just the actions. */
 function asAutomation(given: unknown): Config {
   return isPlainObject(given) && 'then' in given
-    ? { ...given, then: flat([given.then as Many<Step>]) }
-    : { then: flat([given as Many<Step>]) };
-}
-
-/** What an `on_x()` returns, to add steps or options to later. */
-export class Automation {
-  private options: Config = {};
-  private readonly actions: Step[];
-
-  constructor(actions: Many<Step>[]) {
-    markThunks(actions);
-    this.actions = flat(actions);
-  }
-
-  /** Appends steps, which run after the ones already here. */
-  then(...actions: Many<Step>[]): this {
-    markThunks(actions);
-    this.actions.push(...flat(actions));
-    return this;
-  }
-
-  /** Settings beside the steps, e.g. `above` for `on_value_range`. */
-  with(options: Config): this {
-    Object.assign(this.options, options);
-    return this;
-  }
-
-  toConfig(): Config {
-    return { ...this.options, then: this.actions };
-  }
+    ? { ...given, then: flat([given.then as Many<AnyAction>]) }
+    : { then: flat([given as Many<AnyAction>]) };
 }
 
 /** A construct that adds to a block owned elsewhere, e.g. an `api` action. */

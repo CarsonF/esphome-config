@@ -1,7 +1,7 @@
 import { isArray, isFunction, isPlainObject, mapValues } from 'remeda';
 
 /**
- * Steps given as a function, built when the YAML renders so they can name what isn't made yet.
+ * Actions given as a function, built when the YAML renders so they can name what isn't made yet.
  * Example: sw.turn_on_action(() => hold.execute())
  */
 
@@ -25,15 +25,15 @@ export function markThunks(value: unknown): void {
 
 export type Resolved = Map<Function, unknown[]>;
 
-/** `value` with each function replaced by the steps it returns; `resolved` runs each once. */
+/** `value` with each function replaced by the actions it returns; `resolved` runs each once. */
 export function resolveThunks<T>(value: T, resolved: Resolved): T {
   return resolve(value, resolved) as T;
 }
 
-/** Entities and constructs only exist while the config is being built, not while a step is. */
+/** Entities and constructs only exist while the config is built, not while a lazy action runs. */
 export function assertNotResolving(): void {
   if (running > 0) {
-    throw new Error('create entities outside a step function: it runs while the YAML renders');
+    throw new Error('create entities outside a lazy action: it runs while the YAML renders');
   }
 }
 
@@ -51,14 +51,14 @@ function resolve(value: unknown, resolved: Resolved): unknown {
   return value;
 }
 
-/** The items an array holds in place of `item`: a function's steps, or the item itself. */
+/** The items an array holds in place of `item`: a function's actions, or the item itself. */
 function expand(item: unknown, resolved: Resolved): unknown[] {
   if (!isFunction(item)) return [resolve(item, resolved)];
   const known = resolved.get(item);
   if (known) return known;
-  const steps = [call(item)].flat(Infinity).flatMap((step) => expand(step, resolved));
-  resolved.set(item, steps);
-  return steps;
+  const actions = [call(item)].flat(Infinity).flatMap((action) => expand(action, resolved));
+  resolved.set(item, actions);
+  return actions;
 }
 
 function call(fn: Function): unknown {
@@ -77,7 +77,7 @@ function withSite(error: unknown, fn: Function): Error {
   const site = sites.get(fn);
   // shaped like a frame, so a trace printer that keeps only frames keeps it too
   if (site)
-    thrown.stack = `${thrown.stack}\n    at given (the step function was given here)\n${site}`;
+    thrown.stack = `${thrown.stack}\n    at given (the lazy action was given here)\n${site}`;
   return thrown;
 }
 

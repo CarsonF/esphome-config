@@ -38,11 +38,11 @@ function tagged({ tag, value }: Tagged): Scalar {
 }
 
 function list(items: unknown[]): unknown {
-  // a lambda directly in a list is a step: `- lambda: !lambda ...`
-  const steps = items.map((item) =>
+  // a lambda directly in a list is an action: `- lambda: !lambda ...`
+  const actions = items.map((item) =>
     item instanceof Tagged && item.tag === 'lambda' ? { lambda: item } : item,
   );
-  if (!steps.every((item) => typeof item === 'number')) return steps.map((item) => order(item));
+  if (!actions.every((item) => typeof item === 'number')) return actions.map((item) => order(item));
   const seq = new YAMLSeq();
   seq.items = items.map((item) => new Scalar(item));
   seq.flow = true;

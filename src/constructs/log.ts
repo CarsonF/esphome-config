@@ -5,7 +5,7 @@ import { esp } from '../esp.ts';
 type Level = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG' | 'VERBOSE';
 
 /**
- * A `logger.log` step; an entity argument is read as `id(<id>)`, and other strings are C++.
+ * A `logger.log` action; an entity argument is read as `id(<id>)`, and other strings are C++.
  * Example: log.info('fan', 'too hot: %d', tooHot)
  */
 export const log = {

@@ -17,9 +17,9 @@ export default esp.device('demo-fan', () => {
   const cooler = pwmFan({ name: 'Cooler', pin: 'GPIO5' });
 
   const temp = esp.sensor.adc({ name: 'Temperature', pin: 'GPIO34', update_interval: '10s' });
-  temp.on_value(
+  temp.on_value([
     tooHot.assign('x > 30.0'),
     cooler.turn_on(),
     log.info('fan', 'too hot: %d', tooHot),
-  );
+  ]);
 });

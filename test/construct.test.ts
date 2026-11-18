@@ -37,19 +37,18 @@ test('a bad or repeated local id is rejected', () => {
   });
 });
 
-test('entities need a device, and not a running step function', () => {
+test('entities need a device, and not a running lazy action', () => {
   assert.throws(() => sensor({}), /no current scope/);
   const root = device('d', () => {
     script({ id: 's', then: () => sensor({}) as never });
   });
-  assert.throws(() => root.toYaml(), /create entities outside a step function/);
+  assert.throws(() => root.toYaml(), /create entities outside a lazy action/);
 });
 
 test('a trigger prop and on_x() calls are one list of automations', () => {
   const yaml = device('d', () => {
     const temp = sensor({ id: 'temp', on_value: { then: { log: 1 }, above: 3 } });
-    temp.on_value({ log: 2 }).then({ log: 3 });
-    temp.on_value([{ log: 4 }]).with({ below: 5 });
+    temp.on_value([{ log: 2 }, { log: 3 }]).on_value({ then: [{ log: 4 }], below: 5 });
   }).toYaml();
   assert.deepEqual(parse(yaml).sensor[0].on_value, [
     { above: 3, then: [{ log: 1 }] },
@@ -65,7 +64,7 @@ test('a single automation is not a list', () => {
   assert.deepEqual(parse(yaml).sensor[0].on_value, { then: [{ log: 1 }, { log: 2 }] });
 });
 
-test('step props flatten nested lists', () => {
+test('action props flatten nested lists', () => {
   const yaml = device('d', () => {
     sensor({ id: 'temp', filters: [{ a: 1 }, [{ b: 2 }, [{ c: 3 }]]] });
   }).toYaml();
