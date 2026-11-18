@@ -21,9 +21,9 @@ test('an id without one comes from the name, else the label, made unique', () =>
   });
 });
 
-test('an id naming an ESPHome integration gets a _ suffix', () => {
+test('an id naming an ESPHome integration gets a my_ prefix', () => {
   reserveIds(['wifi']);
-  device('d', () => assert.equal(sensor({ id: 'wifi' }).id, 'wifi_'));
+  device('d', () => assert.equal(sensor({ id: 'wifi' }).id, 'my_wifi'));
 });
 
 test('a bad or repeated local id is rejected', () => {

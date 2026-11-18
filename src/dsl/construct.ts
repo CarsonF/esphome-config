@@ -29,7 +29,7 @@ export class Construct {
 
   get id(): string {
     const id = this.path.join('_');
-    return reserved.has(id) ? `${id}_` : id;
+    return reserved.has(id) ? `my_${id}` : id;
   }
 
   /** This construct and everything under it, depth first. */
@@ -155,7 +155,7 @@ export function appendList(blocks: Config, block: string, key: string, entry: un
 
 const reserved = new Set<string>();
 
-/** Ids that name an ESPHome integration, which it rejects; an entity with one gets a `_` suffix. */
+/** Ids that name an ESPHome integration, which it rejects. */
 export function reserveIds(ids: Iterable<string>): void {
   for (const id of ids) reserved.add(id);
 }

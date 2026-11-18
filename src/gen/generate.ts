@@ -200,7 +200,7 @@ const indent = (text: string): string =>
 
 //#endregion
 
-/** Ids ESPHome rejects because they name an integration; entities get a `_` suffix instead. */
+/** Ids ESPHome rejects because they name an integration. */
 function writeReserved(catalog: Catalog): void {
   const names = new Set([...catalog.components, ...catalog.namespaces]);
   catalog.platforms.forEach((spec) => names.add(spec.split('.')[1]));
