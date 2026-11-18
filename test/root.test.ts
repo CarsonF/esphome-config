@@ -9,6 +9,7 @@ import {
   currentScope,
   device,
   lambda,
+  reserveIds,
   secret,
 } from '../src/index.ts';
 import type { Config } from '../src/index.ts';
@@ -49,6 +50,21 @@ test('a single block is not a list, and a listable one only when there are two',
     }).toYaml(),
   );
   assert.deepEqual(two.i2c, [{ sda: 1 }, { sda: 2 }]);
+});
+
+test('a single block has an id only when something refers to it, with a reserved id suffixed', () => {
+  reserveIds(['wifi']);
+  const unreferenced = parse(device('d', () => {
+      wifi({ ssid: 'x' });
+    }).toYaml());
+  assert.deepEqual(unreferenced.wifi, { ssid: 'x' });
+  const yaml = device('d', () => {
+    const radio = wifi({ ssid: 'x' });
+    script({ id: 'run', then: () => ({ 'wifi.disable': { id: radio } }) });
+  }).toYaml();
+  const config = parse(yaml);
+  assert.deepEqual(config.wifi, { id: 'wifi_', ssid: 'x' });
+  assert.deepEqual(config.script, [{ id: 'run', then: [{ 'wifi.disable': { id: 'wifi_' } }] }]);
 });
 
 test('ids that collide across scopes are rejected', () => {

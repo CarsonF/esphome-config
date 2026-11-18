@@ -1,0 +1,16 @@
+esphome:
+  name: espnow-send
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+espnow:
+  id: espnow_
+  channel: 1
+interval:
+  - interval: 10s
+    then:
+      - espnow.send:
+          id: espnow_
+          address: FF:FF:FF:FF:FF:FF
+          data: hi
