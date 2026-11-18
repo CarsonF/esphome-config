@@ -1,22 +1,38 @@
 import { groupBy, mapValues } from 'remeda';
 import { Construct, Contribution, Entity } from './construct.ts';
+import { inScope } from './scope.ts';
 import { Tagged, type Config } from './tags.ts';
 import { resolveThunks, type Resolved } from './thunk.ts';
 import { toYaml } from './yaml.ts';
 
+/** What creates a device's entities, in the device's scope. */
+export type Build = () => void | Promise<void>;
+
 /**
  * The root construct: scope for every entity, and the YAML they render to.
- * Example: const root = new Root('demo-fan'); new AdcSensor(root, 'temp', { pin: 'GPIO34' });
+ * `build` runs on first use, or on `load()`, which an async build needs.
+ * Example: const root = new Root('demo-fan', () => { sensor({ name: 'Temperature' }) });
  */
 export class Root extends Construct {
   readonly name: string;
   private readonly blocks: Config = {};
   /** Lazy actions already run, so the two render passes and the secrets scan share one run. */
   private readonly resolved: Resolved = new Map();
+  private builder: Build | undefined;
+  private pending: Promise<void> | undefined;
+  private failure: { error: unknown } | undefined;
 
-  constructor(name: string) {
+  constructor(name: string, build?: Build) {
     super(undefined, name);
     this.name = name;
+    this.builder = build;
+  }
+
+  /** Runs the build once; resolves when an async build has finished. */
+  async load(): Promise<this> {
+    this.start();
+    await this.pending;
+    return this;
   }
 
   /** A top-level block with no generated class, e.g. `spi`. */
@@ -27,6 +43,7 @@ export class Root extends Construct {
 
   /** `localExternals` maps an `external_components` source to a directory, to validate offline. */
   toYaml(options: { localExternals?: Record<string, string> } = {}): string {
+    this.ensureBuilt();
     // the first pass prints every id to find what is referenced; the second prints only those
     const referenced = collectRefs(this.build());
     this.checkIds(referenced);
@@ -35,6 +52,7 @@ export class Root extends Construct {
 
   /** The `!secret` keys the config uses, for a dummy secrets.yaml. */
   secretNames(): string[] {
+    this.ensureBuilt();
     const found = new Set<string>();
     const visit = (value: unknown): void => {
       if (value instanceof Tagged) {
@@ -51,6 +69,37 @@ export class Root extends Construct {
   }
 
   //#region Helpers
+
+  private ensureBuilt(): void {
+    this.start();
+    if (this.pending) throw new Error(`${this.name}: its build is async, so await load() first`);
+  }
+
+  private start(): void {
+    if (this.failure) throw this.failure.error;
+    const builder = this.builder;
+    if (!builder) return;
+    this.builder = undefined;
+    try {
+      const built = inScope(this, builder);
+      if (!(built instanceof Promise)) return;
+      this.pending = built.then(
+        () => {
+          this.pending = undefined;
+        },
+        (error) => {
+          this.pending = undefined;
+          this.failure = { error };
+          throw error;
+        },
+      );
+      // a build nobody awaits reports through `ensureBuilt`, not as an unhandled rejection
+      this.pending.catch(() => {});
+    } catch (error) {
+      this.failure = { error };
+      throw error;
+    }
+  }
 
   private build(referenced?: ReadonlySet<unknown>): Config {
     const domains = mapValues(

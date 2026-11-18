@@ -1,0 +1,10 @@
+esphome:
+  name: cycle-b
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+espnow:
+  channel: 1
+  peers:
+    - AA:AA:AA:AA:AA:AA

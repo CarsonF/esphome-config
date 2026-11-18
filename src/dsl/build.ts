@@ -40,9 +40,7 @@ async function loadDevice(name: string, dir: string): Promise<Root> {
   if (!file) {
     throw new Error(`no device ${name}: expected ${dir}/${name}.ts or ${dir}/${name}/index.ts`);
   }
-  const { default: exported } = (await import(pathToFileURL(file).href)) as {
-    default?: Root | Promise<Root>;
-  };
+  const { default: exported } = (await import(pathToFileURL(file).href)) as { default?: Root };
   if (!exported) throw new Error(`${file} has no default export: export default device(...)`);
-  return await exported;
+  return await exported.load();
 }
