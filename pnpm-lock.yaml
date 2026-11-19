@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       remeda:
-        specifier: ^2.58.0
-        version: 2.58.0
+        specifier: ^2.61.0
+        version: 2.61.0
       type-fest:
         specifier: ^6.0.0
         version: 6.0.0
@@ -293,8 +293,8 @@ packages:
   remark-parse@11.0.0:
     resolution: {integrity: sha512-FCxlKLNGknS5ba/1lmpYijMUzX2esxW5xQqjWxw2eHFfS2MSdaHVINFmhjo+qN1WhZhNimq0dZATN9pH0IDrpA==}
 
-  remeda@2.58.0:
-    resolution: {integrity: sha512-uCy/WL+c+IF/oAb+sjgZ4Y7XPsW58wP8EWiYpIcqWQZBnNEcb8RnLh9PHsERA97ONpkebGw4S6qNcOtFQ+HG7A==}
+  remeda@2.61.0:
+    resolution: {integrity: sha512-x8v7/slXeMnUy4izdZecOVlorISUQC5sHbc2GIdaf2pNYQUKt30NREbGa68Ag/3bjkaK64e9qDu1X4S47bUZAQ==}
     engines: {node: '>=18.0.0'}
 
   stringify-entities@4.0.4:
@@ -810,7 +810,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  remeda@2.58.0: {}
+  remeda@2.61.0: {}
 
   stringify-entities@4.0.4:
     dependencies:
