@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026.10.1](https://github.com/CarsonF/esphome-config/compare/v2026.10.0...v2026.10.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* merge core and external schema files of the same name ([54a629e](https://github.com/CarsonF/esphome-config/commit/54a629edabc77f366479084b3d391dcad5f6318a))
+* type the generated actions index so declarations emit ([e268245](https://github.com/CarsonF/esphome-config/commit/e2682457454f2d0c6808595fe2c290eb8918c531))
+
 ## [2026.10.0](https://github.com/CarsonF/esphome-config/compare/v2026.9.4...v2026.10.0) (2026-11-22)
 
 
