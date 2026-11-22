@@ -22,9 +22,10 @@ let
     hash =
       hashes.${version}
         or (throw "esphome-config: no esphome.io hash for ESPHome ${version} in docs-hashes.json");
-    # the docs script and the pages it reads, without the site's images
+    # the docs script, the modules it imports, and the pages it reads, without the site's images
     sparseCheckout = [
       "/script/"
+      "/src/lib/"
       "/src/content/docs/**/*.md"
       "/src/content/docs/**/*.mdx"
     ];
