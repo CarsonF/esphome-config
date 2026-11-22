@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cpSync, readFileSync } from 'node:fs';
+import { chmodSync, cpSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -63,7 +63,12 @@ async function generateCore(): Promise<void> {
   const schema = schemaDir();
   await generate({ version, schema, out });
   // shipped beside the types, for generating external components' types
-  cpSync(schema, join(out, 'schema'), { recursive: true });
+  const copy = join(out, 'schema');
+  cpSync(schema, copy, { recursive: true });
+  // the Nix store is read-only, and the next `generate` must be able to delete the copy
+  const entries = readdirSync(copy, { recursive: true, encoding: 'utf8' });
+  for (const path of [copy, ...entries.map((entry) => join(copy, entry))])
+    chmodSync(path, statSync(path).mode | 0o200);
 }
 
 async function generateExternalTypes(args: string[]): Promise<void> {
