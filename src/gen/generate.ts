@@ -1104,15 +1104,24 @@ async function writeActions(namespaces: string[]): Promise<void> {
         ns === 'core' ? `  ...${id}${kind},` : `  ${propName(ns)}: ${id}${kind},`,
       )
       .join('\n');
+  // declaration emit can't serialize the inferred type of all the namespaces at once
+  const shape = (kind: 'Actions' | 'Conditions') => {
+    const core = found.some(({ ns }) => ns === 'core');
+    const members = found
+      .filter(({ ns }) => ns !== 'core')
+      .map(({ ns, id }) => `  ${propName(ns)}: typeof ${id}${kind};`)
+      .join('\n');
+    return `{\n${members}\n}${core ? ` & typeof core${kind}` : ''}`;
+  };
   writeIndex(
     'actions',
     `${found.map(({ ns, id }) => `import { ${id}Actions, ${id}Conditions } from './${ns}.ts';`).join('\n')}
 
 /** Typed \`then:\` actions, e.g. \`actions.fan.turn_on(cooler)\`. */
-export const actions = {\n${member('Actions')}\n};
+export const actions: ${shape('Actions')} = {\n${member('Actions')}\n};
 
 /** Typed conditions, e.g. \`conditions.not(conditions.sensor.in_range(temp, { above: 30 }))\`. */
-export const conditions = {\n${member('Conditions')}\n};
+export const conditions: ${shape('Conditions')} = {\n${member('Conditions')}\n};
 `,
   );
 }
