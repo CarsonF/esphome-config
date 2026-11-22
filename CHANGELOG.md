@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026.11.0](https://github.com/CarsonF/esphome-config/compare/v2026.10.1...v2026.11.0) (2026-11-22)
+
+
+### Features
+
+* types for ESPHome 2026.11.0 ([a0a0d6b](https://github.com/CarsonF/esphome-config/commit/a0a0d6b9387da5bd120e7e258aed12651ed0d0a9))
+
 ## [2026.10.1](https://github.com/CarsonF/esphome-config/compare/v2026.10.0...v2026.10.1) (2026-11-22)
 
 
