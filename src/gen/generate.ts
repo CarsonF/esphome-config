@@ -358,13 +358,15 @@ interface Schema {
 // biome-ignore lint: the schema is untyped JSON
 type Json = any;
 
-/** Core files first; external components add their own beside them. */
+/** Core and external components share a file name when an external component adds to a core one. */
 async function load(file: string): Promise<Json> {
-  const path = [SCHEMA, EXTERNAL]
+  const root = [SCHEMA, EXTERNAL]
     .filter((dir) => dir !== undefined)
     .map((dir) => `${dir}/${file}.json`)
-    .find((candidate) => existsSync(candidate));
-  return path ? withFilledOptional(JSON.parse(readFileSync(path, 'utf8'))) : {};
+    .filter((path) => existsSync(path))
+    .map((path) => JSON.parse(readFileSync(path, 'utf8')));
+  // an external component overrides a core one of the same name, as in ESPHome
+  return withFilledOptional(Object.assign({}, ...root));
 }
 
 /**
