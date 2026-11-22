@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026.10.0](https://github.com/CarsonF/esphome-config/compare/v2026.9.4...v2026.10.0) (2026-11-22)
+
+
+### Features
+
+* types for ESPHome 2026.10.2 ([40aeeb5](https://github.com/CarsonF/esphome-config/commit/40aeeb5d8d88a1d275896408acfed2b3a4bb7f45))
+
+
+### Bug Fixes
+
+* **deps:** bump ([a442a4b](https://github.com/CarsonF/esphome-config/commit/a442a4b4ea54ffb269ee33d01c31d72ac4b1e209))
+* fetch the modules esphome.io's schema script imports ([c04419d](https://github.com/CarsonF/esphome-config/commit/c04419d6ffede1b55f3c3d5ed5a8aa3a9b2b7dd5))
+
 ## [2026.9.4](https://github.com/CarsonF/esphome-config/compare/v2026.9.3...v2026.9.4) (2026-11-18)
 
 
