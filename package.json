@@ -61,8 +61,8 @@
     "prepack": "pnpm build"
   },
   "dependencies": {
-    "remeda": "^2.58.0",
-    "type-fest": "^6.0.0",
+    "remeda": "^2.62.2",
+    "type-fest": "^6.0.2",
     "typescript": "^5.7.0",
     "yaml": "^2.9.1"
   },
