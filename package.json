@@ -62,7 +62,7 @@
   },
   "dependencies": {
     "remeda": "^2.62.2",
-    "type-fest": "^6.0.2",
+    "type-fest": "^6.0.3",
     "typescript": "^5.7.0",
     "yaml": "^2.9.1"
   },
